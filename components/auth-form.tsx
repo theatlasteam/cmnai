@@ -76,6 +76,7 @@ export function AuthForm({ mode, t, locale, captcha: initial, googleEnabled }: P
                   label={t.auth.name}
                   htmlName="name"
                   placeholder="Ada Lovelace"
+                  autoComplete="name"
                   isRequired
                 />
               ) : null}
@@ -84,6 +85,7 @@ export function AuthForm({ mode, t, locale, captcha: initial, googleEnabled }: P
                 type="email"
                 htmlName="email"
                 placeholder="you@example.com"
+                autoComplete="email"
                 isRequired
               />
               <TextInput
@@ -91,6 +93,7 @@ export function AuthForm({ mode, t, locale, captcha: initial, googleEnabled }: P
                 type="password"
                 htmlName="password"
                 placeholder={isSignup ? "At least 8 characters" : "••••••••"}
+                autoComplete={isSignup ? "new-password" : "current-password"}
                 isRequired
               />
             </FormLayout>
@@ -104,7 +107,7 @@ export function AuthForm({ mode, t, locale, captcha: initial, googleEnabled }: P
                     {t.auth.captchaHint}
                   </Text>
                 </VStack>
-                <div className="cmn-captcha">
+                <HStack className="cmn-captcha" gap={2} align="center" maxWidth="100%">
                   <img
                     key={captcha.id}
                     src={captcha.imageUrl}
@@ -123,8 +126,8 @@ export function AuthForm({ mode, t, locale, captcha: initial, googleEnabled }: P
                     isDisabled={refreshing}
                     onClick={refresh}
                   />
-                </div>
-                <TextInput label="Answer" htmlName="captchaAnswer" isRequired />
+                </HStack>
+                 <TextInput label={t.auth.captcha} htmlName="captchaAnswer" isRequired autoComplete="off" />
               </VStack>
             ) : null}
 

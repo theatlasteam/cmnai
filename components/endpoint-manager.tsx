@@ -11,7 +11,7 @@ import { Text } from "@astryxdesign/core/Text";
 import { TextInput } from "@/components/form-fields";
 import { TextArea } from "@/components/form-fields";
 import { SelectField } from "@/components/select-field";
-import { Table, pixel } from "@astryxdesign/core/Table";
+import { Table, pixel } from "@/components/data-table";
 import { RefreshClockwise, Serverless, ShieldCheck, Trash } from "geist-icons";
 import {
   removeOwnEndpointAction,
@@ -227,7 +227,7 @@ export function EndpointManager({
               <HStack justify="between" align="center" gap={3} wrap="wrap">
                 <VStack gap={2}>
                   <Text type="label">{t.auth.captcha}</Text>
-                  <div className="cmn-captcha">
+                  <HStack className="cmn-captcha" gap={2} align="center" maxWidth="100%">
                     <img
                       key={captcha.id}
                       src={captcha.imageUrl}
@@ -245,8 +245,8 @@ export function EndpointManager({
                       icon={<RefreshClockwise size={16} />}
                       onClick={refresh}
                     />
-                  </div>
-                  <TextInput label="Answer" htmlName="captchaAnswer" isRequired />
+                  </HStack>
+                  <TextInput label={t.auth.captcha} htmlName="captchaAnswer" isRequired autoComplete="off" />
                 </VStack>
                 <Button
                   type="submit"

@@ -1,5 +1,4 @@
 import { cookies } from "next/headers";
-import { Badge } from "@astryxdesign/core/Badge";
 import { Banner } from "@astryxdesign/core/Banner";
 import { Card } from "@astryxdesign/core/Card";
 import { CodeBlock } from "@astryxdesign/core/CodeBlock";
@@ -7,7 +6,7 @@ import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Grid } from "@astryxdesign/core/Grid";
 import { Heading } from "@astryxdesign/core/Heading";
 import { Text } from "@astryxdesign/core/Text";
-import { Table } from "@astryxdesign/core/Table";
+import { Table } from "@/components/data-table";
 import { Button } from "@astryxdesign/core/Button";
 import { ProgressBar } from "@astryxdesign/core/ProgressBar";
 import { ChartActivity, Key, Servers, Sparkles } from "geist-icons";
@@ -128,7 +127,9 @@ export default async function DashboardPage() {
           <VStack gap={4} align="start">
             <HStack width="100%" justify="between" align="center" wrap="wrap" gap={2}>
               <Heading level={2}>{t.dash.usedToday}</Heading>
-              <Badge variant="neutral" label={t.dash.planLabel} />
+              <Text type="label" color={today.isContributor ? "accent" : "secondary"}>
+                {today.isContributor ? t.dash.contributorPlanLabel : t.dash.planLabel}
+              </Text>
             </HStack>
             <Heading level={2} className="tabular-nums">
               {new Intl.NumberFormat(locale).format(today.tokens)}{" "}
@@ -165,22 +166,22 @@ export default async function DashboardPage() {
             <Text type="supporting" color="secondary">
               {t.dash.limitsSubtitle}
             </Text>
-            <HStack width="100%" justify="between" align="center">
+            <HStack width="100%" justify="between" align="center" gap={2} wrap="wrap">
               <Text type="body">{t.dash.rateLimitLabel}</Text>
               <Text type="code">{rpmLimit}/min</Text>
             </HStack>
-            <HStack width="100%" justify="between" align="center">
+            <HStack width="100%" justify="between" align="center" gap={2} wrap="wrap">
               <Text type="body">{t.dash.dailyLimitLabel}</Text>
               <Text type="code">{new Intl.NumberFormat(locale).format(today.limit)}</Text>
             </HStack>
             <Text type="supporting" color="secondary">
-              {t.dash.upgradeHint}
+              {today.isContributor ? t.dash.contributorActive : t.dash.upgradeHint}
             </Text>
             <Button
               variant="secondary"
               size="sm"
-              label={t.dash.endpoints}
-              href="/dashboard/endpoints"
+              label={t.providers.addKey}
+              href="/providers"
             />
           </VStack>
         </Card>
@@ -202,7 +203,7 @@ export default async function DashboardPage() {
             isWrapped
             width="100%"
           />
-          <HStack gap={2}>
+          <HStack gap={2} wrap="wrap">
             <Button variant="secondary" size="sm" label={t.dash.keys} href="/dashboard/keys" />
             <Button variant="ghost" size="sm" label={t.docs.title} href="/docs" />
           </HStack>

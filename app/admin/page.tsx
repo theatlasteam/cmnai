@@ -7,7 +7,7 @@ import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Grid } from "@astryxdesign/core/Grid";
 import { Heading } from "@astryxdesign/core/Heading";
 import { Text } from "@astryxdesign/core/Text";
-import { Table } from "@astryxdesign/core/Table";
+import { Table } from "@/components/data-table";
 import { StatusDot } from "@astryxdesign/core/StatusDot";
 import { ChartActivity, Check, Clock, Servers, ShieldCheck, Sparkles, Users } from "geist-icons";
 import { requireAdmin } from "@/lib/auth";
@@ -15,7 +15,7 @@ import { all, one } from "@/lib/db";
 import { utcDayStart } from "@/lib/pool";
 import { normalizeProviderMode } from "@/lib/provider-mode";
 import { dictionaries, getLocale } from "@/lib/i18n";
-import { reviewModelAction, reviewProviderAction } from "@/app/actions/admin";
+import { reviewProviderAction } from "@/app/actions/admin";
 import { StatusBadge } from "@/components/status-badge";
 import { AdminPendingModelsTable } from "@/components/admin-tables";
 
@@ -199,7 +199,7 @@ export default async function AdminPage() {
             <VStack gap={4}>
               <HStack width="100%" justify="between" align="start" wrap="wrap" gap={3}>
                 <VStack gap={1}>
-                  <HStack gap={2} align="center">
+                  <HStack gap={2} align="center" wrap="wrap">
                     <StatusDot variant="warning" label={t.common.status.pending} />
                     <Heading level={3}>{provider.name}</Heading>
                     <StatusBadge status={provider.status} t={t} />
@@ -220,7 +220,7 @@ export default async function AdminPage() {
                     <Text type="body">{provider.notes}</Text>
                   ) : null}
                 </VStack>
-                <HStack gap={2}>
+                <HStack gap={2} wrap="wrap">
                   <form action={reviewProviderAction}>
                     <input type="hidden" name="providerId" value={provider.id} />
                     <input type="hidden" name="decision" value="approve" />

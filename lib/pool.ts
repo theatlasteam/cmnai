@@ -245,24 +245,35 @@ export function utcDayStart(daysAgo = 0): string {
 export type DailyUsage = {
   requests: number;
   tokens: number;
+  isContributor: boolean;
   limit: number;
   remaining: number;
   resetAt: string;
 };
 
 export async function usageToday(userId: string): Promise<DailyUsage> {
-  const row = await one<{ requests: number; tokens: number }>(
+  const row = await one<{ requests: number; tokens: number; is_contributor: number }>(
     `SELECT COUNT(*) AS requests,
-            COALESCE(SUM(prompt_tokens + completion_tokens), 0) AS tokens
+            COALESCE(SUM(prompt_tokens + completion_tokens), 0) AS tokens,
+            EXISTS (
+              SELECT 1 FROM provider_keys k
+              JOIN providers p ON p.id = k.provider_id
+              WHERE k.user_id = ? AND k.status = 'verified' AND p.status = 'approved'
+            ) AS is_contributor
      FROM usage_events WHERE user_id = ? AND created_at >= ?`,
+    userId,
     userId,
     utcDayStart(),
   );
   const tokens = row?.tokens ?? 0;
-  const limit = dailyTokenLimit();
+  // Evaluate current contributions, not a permanent role: pending, failed,
+  // disabled keys and paused/rejected providers do not earn the higher budget.
+  const isContributor = Boolean(row?.is_contributor);
+  const limit = dailyTokenLimit(isContributor);
   return {
     requests: row?.requests ?? 0,
     tokens,
+    isContributor,
     limit,
     remaining: Math.max(0, limit - tokens),
     resetAt: nextDailyReset(),
@@ -350,4 +361,3 @@ export async function usageByKey(userId: string, days = 30): Promise<KeyUsage[]>
     userId,
   );
 }
-

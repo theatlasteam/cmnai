@@ -3,6 +3,7 @@ import { Section } from "@astryxdesign/core/Section";
 import { getLocale, dictionaries } from "@/lib/i18n";
 import { requireUser } from "@/lib/auth";
 import { DashNav } from "@/components/dash-nav";
+import { PageShell } from "@/components/page-shell";
 
 
 
@@ -15,8 +16,7 @@ export default async function DashboardLayout({
   const t = dictionaries[locale];
 
   return (
-    <VStack width="100%" minHeight="100vh" gap={0}>
-      <DashNav t={t} locale={locale} user={user} />
+    <PageShell topNav={<DashNav t={t} locale={locale} user={user} />}>
       <Section variant="transparent" padding={0}>
         <VStack
           className="cmn-page"
@@ -29,6 +29,6 @@ export default async function DashboardLayout({
           {children}
         </VStack>
       </Section>
-    </VStack>
+    </PageShell>
   );
 }

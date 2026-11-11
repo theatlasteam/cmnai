@@ -1,11 +1,10 @@
-import { Badge } from "@astryxdesign/core/Badge";
 import { Card } from "@astryxdesign/core/Card";
 import { CodeBlock } from "@astryxdesign/core/CodeBlock";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Section } from "@astryxdesign/core/Section";
 import { Heading } from "@astryxdesign/core/Heading";
 import { Text } from "@astryxdesign/core/Text";
-import { Table, pixel } from "@astryxdesign/core/Table";
+import { Table, pixel } from "@/components/data-table";
 import { BookOpen } from "geist-icons";
 import { getCurrentUser } from "@/lib/auth";
 import { dictionaries, getLocale } from "@/lib/i18n";
@@ -14,6 +13,7 @@ import { getSiteUrl } from "@/lib/site";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { CopyRow } from "@/components/copy-button";
+import { PageShell } from "@/components/page-shell";
 
 
 
@@ -22,6 +22,7 @@ export default async function DocsPage() {
   const t = dictionaries[locale];
   const rpm = rateLimitPerMinute();
   const dailyTokens = dailyTokenLimit();
+  const contributorDailyTokens = dailyTokenLimit(true);
   const number = new Intl.NumberFormat(locale);
   const apiBase = `${await getSiteUrl()}/v1`;
 
@@ -75,8 +76,7 @@ print(completion.choices[0].message.content)`;
   ];
 
   return (
-    <VStack width="100%" minHeight="100vh" gap={0}>
-      <SiteHeader t={t} locale={locale} user={user} />
+    <PageShell topNav={<SiteHeader t={t} locale={locale} user={user} />}>
       <Section variant="transparent" padding={0}>
         <VStack
           className="cmn-page"
@@ -98,9 +98,9 @@ print(completion.choices[0].message.content)`;
 
           <Card padding={5}>
             <VStack gap={3}>
-              <HStack gap={2} align="center">
-                <Badge variant="blue" label={t.docs.baseUrl} />
-                <Text type="code">{apiBase}</Text>
+              <HStack gap={2} align="center" wrap="wrap">
+                <Text type="label" color="secondary">{t.docs.baseUrl}</Text>
+                <Text type="code" wordBreak="break-all">{apiBase}</Text>
               </HStack>
               <CopyRow value={apiBase} label={t.landing.copy} copiedLabel={t.landing.copied} />
             </VStack>
@@ -153,14 +153,17 @@ print(completion.choices[0].message.content)`;
               <Text type="body" color="secondary">
                 {t.docs.limitsBody}
               </Text>
-              <HStack gap={3} wrap="wrap">
-                <Badge variant="neutral" label={`${number.format(rpm)} req / min`} />
-                <Badge
-                  variant="neutral"
-                  label={`${number.format(dailyTokens)} tokens / day`}
-                />
-                <Badge variant="success" label="Contributors: higher limits" />
-              </HStack>
+              <VStack gap={2} width="100%">
+                <Text type="code">{number.format(rpm)} · {t.dash.rateLimitLabel}</Text>
+                <HStack gap={2} justify="between" wrap="wrap" width="100%">
+                  <Text type="body">{t.docs.memberLimit}</Text>
+                  <Text type="code">{number.format(dailyTokens)} · {t.dash.dailyLimitLabel}</Text>
+                </HStack>
+                <HStack gap={2} justify="between" wrap="wrap" width="100%">
+                  <Text type="body">{t.docs.contributorLimit}</Text>
+                  <Text type="code" color="accent">{number.format(contributorDailyTokens)} · {t.dash.dailyLimitLabel}</Text>
+                </HStack>
+              </VStack>
             </VStack>
           </Card>
 
@@ -175,7 +178,8 @@ print(completion.choices[0].message.content)`;
 X-RateLimit-Remaining: 57
 X-RateLimit-Reset: 1790000060
 X-Daily-Token-Limit: ${dailyTokens}
-X-Daily-Tokens-Remaining: 187420`}
+X-Daily-Tokens-Used: 12680
+X-Daily-Tokens-Remaining: ${Math.max(0, dailyTokens - 12_680)}`}
                 language="http"
                 hasCopyButton
                 isWrapped
@@ -204,6 +208,6 @@ X-Daily-Tokens-Remaining: 187420`}
         </VStack>
       </Section>
       <SiteFooter t={t} />
-    </VStack>
+    </PageShell>
   );
 }

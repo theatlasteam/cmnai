@@ -136,6 +136,8 @@ export async function reviewProviderAction(formData: FormData) {
   revalidatePath("/admin");
   revalidatePath("/admin/providers");
   revalidatePath("/");
+  revalidatePath("/providers");
+  revalidatePath("/dashboard", "layout");
 }
 
 export async function reviewModelAction(formData: FormData) {

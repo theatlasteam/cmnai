@@ -1,5 +1,9 @@
+"use client";
+
+import { useAppShellMobile } from "@astryxdesign/core/AppShell";
 import { Button } from "@astryxdesign/core/Button";
 import { HStack } from "@astryxdesign/core/Layout";
+import { MobileNavToggle } from "@astryxdesign/core/MobileNav";
 import { TopNav, TopNavHeading, TopNavItem } from "@astryxdesign/core/TopNav";
 import { Globe } from "geist-icons";
 import { BrandMark } from "./brand";
@@ -17,9 +21,12 @@ export function SiteHeader({
   locale: Locale;
   user: User | null;
 }) {
+  const { isMobile } = useAppShellMobile();
+
   return (
     <TopNav
       className="cmn-topnav"
+      label={t.nav.menu}
       heading={
         <TopNavHeading
           logo={<BrandMark size={26} />}
@@ -29,12 +36,25 @@ export function SiteHeader({
         />
       }
       startContent={
-        <HStack gap={1} align="center">
+        <>
           <TopNavItem label={t.nav.how} href="/#how" />
           <TopNavItem label={t.nav.pool} href="/#pool" />
           <TopNavItem label={t.nav.providers} href="/providers" />
           <TopNavItem label={t.nav.docs} href="/docs" />
-        </HStack>
+          {isMobile ? (
+            user ? (
+              <>
+                {user.role === "admin" ? <TopNavItem label={t.nav.admin} href="/admin" /> : null}
+                <TopNavItem label={t.nav.dashboard} href="/dashboard" />
+              </>
+            ) : (
+              <>
+                <TopNavItem label={t.nav.signIn} href="/login" />
+                <TopNavItem label={t.nav.getKey} href="/signup" />
+              </>
+            )
+          ) : null}
+        </>
       }
       endContent={
         <HStack gap={2} align="center">
@@ -48,39 +68,42 @@ export function SiteHeader({
               icon={<Globe size={16} />}
             />
           </form>
-          {user ? (
-            <>
-              {user.role === "admin" ? (
+          {!isMobile ? (
+            user ? (
+              <>
+                {user.role === "admin" ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    label={t.nav.admin}
+                    href="/admin"
+                  />
+                ) : null}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  label={t.nav.dashboard}
+                  href="/dashboard"
+                />
+              </>
+            ) : (
+              <>
                 <Button
                   variant="ghost"
                   size="sm"
-                  label={t.nav.admin}
-                  href="/admin"
+                  label={t.nav.signIn}
+                  href="/login"
                 />
-              ) : null}
-              <Button
-                variant="secondary"
-                size="sm"
-                label={t.nav.dashboard}
-                href="/dashboard"
-              />
-            </>
-          ) : (
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                label={t.nav.signIn}
-                href="/login"
-              />
-              <Button
-                variant="primary"
-                size="sm"
-                label={t.nav.getKey}
-                href="/signup"
-              />
-            </>
-          )}
+                <Button
+                  variant="primary"
+                  size="sm"
+                  label={t.nav.getKey}
+                  href="/signup"
+                />
+              </>
+            )
+          ) : null}
+          <MobileNavToggle label={t.nav.menu} />
         </HStack>
       }
     />

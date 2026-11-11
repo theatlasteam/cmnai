@@ -12,6 +12,7 @@ const en = {
   brand: "cmnAI",
   tagline: "Community-owned AI inference",
   nav: {
+    menu: "Navigation menu",
     how: "How it works",
     pool: "The pool",
     providers: "Providers",
@@ -133,7 +134,7 @@ const en = {
     docs: "Docs",
     usageTitle: "Usage & limits",
     usageSubtitle:
-      "Requests, tokens and fair-use budgets for your account. Limits reset on a rolling UTC day.",
+      "Requests, tokens and fair-use budgets for your account. Limits reset at midnight UTC.",
     usedToday: "Used today",
     remainingToday: "Remaining today",
     resetsAt: "Resets",
@@ -145,7 +146,9 @@ const en = {
     rateLimitLabel: "Requests per minute",
     dailyLimitLabel: "Tokens per day",
     planLabel: "Community plan",
-    upgradeHint: "Contribute an endpoint to earn higher limits.",
+    contributorPlanLabel: "Key contributor",
+    upgradeHint: "Contribute a verified key to an approved provider to unlock the contributor daily budget.",
+    contributorActive: "Your verified key contribution unlocks the higher daily budget. Thank you for supporting the pool.",
     last14: "Last 14 days",
     models30: "Models · last 30 days",
     keys30: "Keys · last 30 days",
@@ -226,7 +229,9 @@ const en = {
       "401 for a missing or revoked key, 429 when you exceed fair use, 503 when the pool has no healthy endpoint for that model.",
     limitsTitle: "Fair use",
     limitsBody:
-      "Free keys get 60 requests per minute and 200k tokens per day. Contributors get higher limits after review.",
+      "The daily budget is shared across all API keys in your account and resets at midnight UTC. Contribute at least one verified upstream key to an approved provider to unlock the contributor budget.",
+    memberLimit: "Members",
+    contributorLimit: "Verified key contributors",
     headersTitle: "Rate-limit headers",
     headersBody:
       "Every response carries the current budget. A 429 includes Retry-After so clients can back off cleanly.",
@@ -306,6 +311,7 @@ const ru: Dictionary = {
   brand: "cmnAI",
   tagline: "Инференс, принадлежащий сообществу",
   nav: {
+    menu: "Меню навигации",
     how: "Как это работает",
     pool: "Пул",
     providers: "Провайдеры",
@@ -439,7 +445,9 @@ const ru: Dictionary = {
     rateLimitLabel: "Запросов в минуту",
     dailyLimitLabel: "Токенов в день",
     planLabel: "План сообщества",
-    upgradeHint: "Добавьте эндпоинт, чтобы получить повышенные лимиты.",
+    contributorPlanLabel: "Участник с ключом",
+    upgradeHint: "Добавьте проверенный ключ к одобренному провайдеру, чтобы получить повышенный дневной лимит.",
+    contributorActive: "Ваш проверенный ключ даёт повышенный дневной лимит. Спасибо за поддержку пула.",
     last14: "Последние 14 дней",
     models30: "Модели · 30 дней",
     keys30: "Ключи · 30 дней",
@@ -520,7 +528,9 @@ const ru: Dictionary = {
       "401 — ключ отсутствует или отозван, 429 — превышен честный лимит, 503 — в пуле нет рабочего эндпоинта для этой модели.",
     limitsTitle: "Честные лимиты",
     limitsBody:
-      "Бесплатный ключ: 60 запросов в минуту и 200 тыс. токенов в день. Участники получают больше после проверки.",
+      "Дневной лимит общий для всех API-ключей аккаунта и сбрасывается в полночь UTC. Добавьте хотя бы один проверенный ключ к одобренному провайдеру, чтобы получить повышенный лимит.",
+    memberLimit: "Участники",
+    contributorLimit: "Участники с проверенным ключом",
     headersTitle: "Заголовки лимитов",
     headersBody:
       "Каждый ответ содержит текущий бюджет. При 429 приходит Retry-After, чтобы клиент корректно повторил запрос.",

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Theme } from "@astryxdesign/core/theme";
@@ -22,6 +22,13 @@ export const metadata: Metadata = {
   title: "cmnAI — community-owned AI inference",
   description:
     "One OpenAI-compatible API for models pooled and reviewed by the community. Free keys, no vendor lock-in, built for people doing real work.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  colorScheme: "dark",
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {

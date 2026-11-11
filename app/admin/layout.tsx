@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/auth";
 import { dictionaries, getLocale } from "@/lib/i18n";
 import { one } from "@/lib/db";
 import { AdminNav } from "@/components/admin-nav";
+import { PageShell } from "@/components/page-shell";
 
 
 
@@ -12,7 +13,7 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [locale, user] = await Promise.all([getLocale(), requireAdmin()]);
+  const [locale] = await Promise.all([getLocale(), requireAdmin()]);
   const t = dictionaries[locale];
   const pending = await one<{ c: number }>(
     `SELECT (SELECT COUNT(*) FROM providers WHERE status = 'pending')
@@ -20,8 +21,7 @@ export default async function AdminLayout({
   );
 
   return (
-    <VStack width="100%" minHeight="100vh" gap={0}>
-      <AdminNav t={t} locale={locale} user={user} pendingCount={pending?.c ?? 0} />
+    <PageShell topNav={<AdminNav t={t} locale={locale} pendingCount={pending?.c ?? 0} />}>
       <Section variant="transparent" padding={0}>
         <VStack
           className="cmn-page"
@@ -34,6 +34,6 @@ export default async function AdminLayout({
           {children}
         </VStack>
       </Section>
-    </VStack>
+    </PageShell>
   );
 }

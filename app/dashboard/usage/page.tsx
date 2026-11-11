@@ -1,10 +1,9 @@
-import { Badge } from "@astryxdesign/core/Badge";
 import { Card } from "@astryxdesign/core/Card";
 import { Grid } from "@astryxdesign/core/Grid";
 import { Heading } from "@astryxdesign/core/Heading";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { ProgressBar } from "@astryxdesign/core/ProgressBar";
-import { Table } from "@astryxdesign/core/Table";
+import { Table } from "@/components/data-table";
 import { Text } from "@astryxdesign/core/Text";
 import { ChartActivity, Clock, Gauge, Sparkles } from "geist-icons";
 import { requireUser } from "@/lib/auth";
@@ -121,7 +120,9 @@ export default async function UsagePage() {
           <VStack gap={4} align="start">
             <HStack width="100%" justify="between" align="center" wrap="wrap" gap={2}>
               <Heading level={2}>{t.dash.usedToday}</Heading>
-              <Badge variant="neutral" label={t.dash.planLabel} />
+              <Text type="label" color={today.isContributor ? "accent" : "secondary"}>
+                {today.isContributor ? t.dash.contributorPlanLabel : t.dash.planLabel}
+              </Text>
             </HStack>
             <ProgressBar
               value={today.tokens}
@@ -145,22 +146,22 @@ export default async function UsagePage() {
         <Card padding={5}>
           <VStack gap={3} align="start">
             <Heading level={2}>{t.dash.limitsTitle}</Heading>
-            <HStack width="100%" justify="between" align="center">
+            <HStack width="100%" justify="between" align="center" gap={2} wrap="wrap">
               <Text type="body">{t.dash.rateLimitLabel}</Text>
               <Text type="code">{rpm}</Text>
             </HStack>
-            <HStack width="100%" justify="between" align="center">
+            <HStack width="100%" justify="between" align="center" gap={2} wrap="wrap">
               <Text type="body">{t.dash.dailyLimitLabel}</Text>
               <Text type="code">{number.format(today.limit)}</Text>
             </HStack>
-            <HStack width="100%" justify="between" align="center">
+            <HStack width="100%" justify="between" align="center" gap={2} wrap="wrap">
               <Text type="body">{t.dash.allTimeTokens}</Text>
               <Text type="code">
                 {number.format(allTime.prompt + allTime.completion)}
               </Text>
             </HStack>
             <Text type="supporting" color="secondary">
-              {t.dash.upgradeHint}
+              {today.isContributor ? t.dash.contributorActive : t.dash.upgradeHint}
             </Text>
           </VStack>
         </Card>
@@ -172,7 +173,7 @@ export default async function UsagePage() {
           <VStack gap={3} width="100%">
             {daily.map((point) => (
               <HStack key={point.day} gap={3} align="center" width="100%" wrap="wrap">
-                <Text type="supporting" color="secondary" className="tabular-nums">
+                <Text type="supporting" color="secondary" hasTabularNumbers>
                   {new Date(`${point.day}T00:00:00Z`).toLocaleDateString(locale, {
                     month: "short",
                     day: "numeric",
@@ -188,7 +189,7 @@ export default async function UsagePage() {
                     variant={point.tokens > 0 ? "accent" : "neutral"}
                   />
                 </VStack>
-                <Text type="supporting" color="secondary" className="tabular-nums">
+                <Text type="supporting" color="secondary" hasTabularNumbers>
                   {number.format(point.tokens)} {t.dash.tokensShort} ·{" "}
                   {number.format(point.requests)} {t.dash.requests.toLowerCase()}
                 </Text>

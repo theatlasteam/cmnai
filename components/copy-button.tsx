@@ -50,7 +50,7 @@ export function CopyRow({
 }) {
   return (
     <HStack gap={2} align="center" width="100%">
-      <code className="cmn-code-scroll flex-1 rounded-md bg-black/5 px-3 py-2 font-mono text-sm dark:bg-white/10">
+      <code className="cmn-code-scroll min-w-0 flex-1 rounded-md bg-muted px-3 py-2 font-mono text-base">
         {value}
       </code>
       <CopyButton value={value} label={label} copiedLabel={copiedLabel} />

@@ -61,6 +61,12 @@ X-Daily-Tokens-Remaining: 187320
 
 `429` responses include `Retry-After` and an error `code` of `rate_limit` or `daily_limit`.
 
+Members receive **200,000 tokens per UTC day**. Contributing at least one verified
+upstream key to an approved provider raises the account's daily budget to
+**2,000,000 tokens**, shared across all of its API keys. Pending, failed or disabled
+keys and paused or rejected providers do not qualify. Existing verified
+contributions qualify automatically; no new API key is needed.
+
 ## Configuration
 
 | Variable | Default | Meaning |
@@ -70,6 +76,7 @@ X-Daily-Tokens-Remaining: 187320
 | `CMNAI_ADMIN_PASSWORD` | `cmnai-admin-2026` | Seeded admin password |
 | `CMNAI_RATE_LIMIT_PER_MINUTE` | `60` | Requests per minute per API key |
 | `CMNAI_DAILY_TOKEN_LIMIT` | `200000` | Tokens per UTC day per member |
+| `CMNAI_CONTRIBUTOR_DAILY_TOKEN_LIMIT` | `2000000` | Tokens per UTC day per verified key contributor (never lower than the member budget) |
 
 ## Deploy to Cloudflare
 

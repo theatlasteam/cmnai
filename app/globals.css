@@ -21,9 +21,9 @@
 
 @layer components {
   .cmn-topnav {
-    position: sticky;
-    top: 0;
-    z-index: 60;
+    padding-block-start: max(var(--spacing-2), env(safe-area-inset-top));
+    padding-inline-start: max(var(--spacing-2), env(safe-area-inset-left));
+    padding-inline-end: max(var(--spacing-2), env(safe-area-inset-right));
     border-bottom: 1px solid var(--color-border, #ffffff1f);
     background: color-mix(
       in srgb,
@@ -56,25 +56,25 @@
 
   .cmn-code-scroll {
     overflow-x: auto;
+    overscroll-behavior-inline: contain;
   }
 
   /* Captcha */
   .cmn-captcha {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.4rem;
+    padding: var(--spacing-2);
     border: 1px solid var(--color-border, #ffffff1f);
-    border-radius: 14px;
+    border-radius: var(--radius-container);
     background: var(--color-background-muted, #1b1b1b);
     width: fit-content;
+    max-inline-size: 100%;
   }
 
   .cmn-captcha-image {
     display: block;
-    border-radius: 10px;
+    border-radius: var(--radius-element);
     height: auto;
-    max-width: 100%;
+    min-inline-size: 0;
+    max-inline-size: calc(100% - var(--spacing-12) - var(--spacing-2));
   }
 
   /* Hero band */
@@ -94,12 +94,27 @@
 
   .cmn-page {
     margin-inline: auto;
+    min-inline-size: 0;
+  }
+
+  /* Constrain flex/grid children, not the viewport: tables and code keep
+     their own horizontal scroll regions instead of stretching the page. */
+  .cmn-page :where(.astryx-stack, .astryx-grid, .astryx-card, form),
+  .cmn-hero-inner :where(.astryx-stack, .astryx-grid) {
+    min-inline-size: 0;
+    max-inline-size: 100%;
+  }
+
+  .cmn-page :where(.astryx-text, .astryx-heading),
+  .cmn-hero-inner :where(.astryx-text, .astryx-heading) {
+    overflow-wrap: anywhere;
   }
 
   .cmn-hero-inner {
     position: relative;
     z-index: 1;
     margin-inline: auto;
+    min-inline-size: 0;
   }
 
   .cmn-hero-eyebrow {
@@ -164,8 +179,6 @@
   }
 
   .cmn-stat-strip {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
     width: 100%;
     margin-top: 0.75rem;
     padding-top: 1.5rem;
@@ -250,14 +263,32 @@
   }
 
   @media (max-width: 640px) {
+    .cmn-page,
+    .cmn-hero-inner {
+      padding-inline-start: max(var(--spacing-4), env(safe-area-inset-left));
+      padding-inline-end: max(var(--spacing-4), env(safe-area-inset-right));
+      padding-block: var(--spacing-6);
+    }
+
     .cmn-stat-strip {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      row-gap: 1.4rem;
+      row-gap: var(--spacing-6);
     }
 
     .cmn-stat:nth-child(3) {
       padding-left: 0;
       border-left: 0;
+    }
+  }
+
+  @media (pointer: coarse) {
+    .astryx-button,
+    .astryx-top-nav-item,
+    .astryx-mobile-nav-close-button {
+      min-block-size: var(--spacing-12);
+    }
+
+    .astryx-button[aria-label] {
+      min-inline-size: var(--spacing-12);
     }
   }
 

@@ -1,10 +1,12 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useAppShellMobile } from "@astryxdesign/core/AppShell";
 import { Button } from "@astryxdesign/core/Button";
 import { HStack } from "@astryxdesign/core/Layout";
 import { Avatar } from "@astryxdesign/core/Avatar";
 import { TopNav, TopNavHeading, TopNavItem } from "@astryxdesign/core/TopNav";
+import { MobileNavToggle } from "@astryxdesign/core/MobileNav";
 import { Globe, Logout } from "geist-icons";
 import { BrandMark } from "./brand";
 import { localeSwitchAction } from "@/app/actions/locale";
@@ -22,6 +24,7 @@ export function DashNav({
   user: User;
 }) {
   const pathname = usePathname();
+  const { isMobile } = useAppShellMobile();
   const links = [
     { href: "/dashboard", label: t.dash.overview },
     { href: "/dashboard/usage", label: t.dash.usage },
@@ -34,6 +37,7 @@ export function DashNav({
   return (
     <TopNav
       className="cmn-topnav"
+      label={t.dash.title}
       heading={
         <TopNavHeading
           logo={<BrandMark size={26} />}
@@ -43,7 +47,7 @@ export function DashNav({
         />
       }
       startContent={
-        <HStack gap={1} align="center">
+        <>
           {links.map((link) => (
             <TopNavItem
               key={link.href}
@@ -59,7 +63,12 @@ export function DashNav({
           {user.role === "admin" ? (
             <TopNavItem label={t.nav.admin} href="/admin" isSelected={pathname.startsWith("/admin")} />
           ) : null}
-        </HStack>
+          {isMobile ? (
+            <form action={logoutAction}>
+              <Button type="submit" variant="ghost" label={t.nav.signOut} icon={<Logout size={16} />} />
+            </form>
+          ) : null}
+        </>
       }
       endContent={
         <HStack gap={2} align="center">
@@ -73,19 +82,22 @@ export function DashNav({
               icon={<Globe size={16} />}
             />
           </form>
-          <HStack gap={2} align="center">
-            <Avatar name={user.name} size="sm" />
-          </HStack>
-          <form action={logoutAction}>
-            <Button
-              type="submit"
-              variant="ghost"
-              size="sm"
-              label={t.nav.signOut}
-              isIconOnly
-              icon={<Logout size={16} />}
-            />
-          </form>
+          {!isMobile ? (
+            <>
+              <Avatar name={user.name} size="sm" />
+              <form action={logoutAction}>
+                <Button
+                  type="submit"
+                  variant="ghost"
+                  size="sm"
+                  label={t.nav.signOut}
+                  isIconOnly
+                  icon={<Logout size={16} />}
+                />
+              </form>
+            </>
+          ) : null}
+          <MobileNavToggle label={t.nav.menu} />
         </HStack>
       }
     />

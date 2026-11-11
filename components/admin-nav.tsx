@@ -1,29 +1,29 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useAppShellMobile } from "@astryxdesign/core/AppShell";
 import { Badge } from "@astryxdesign/core/Badge";
 import { Button } from "@astryxdesign/core/Button";
 import { HStack } from "@astryxdesign/core/Layout";
 import { TopNav, TopNavHeading, TopNavItem } from "@astryxdesign/core/TopNav";
+import { MobileNavToggle } from "@astryxdesign/core/MobileNav";
 import { ArrowLeft, Globe, Logout } from "geist-icons";
 import { BrandMark } from "./brand";
 import { localeSwitchAction } from "@/app/actions/locale";
 import { logoutAction } from "@/app/actions/auth";
 import type { Dictionary, Locale } from "@/lib/i18n";
-import type { User } from "@/lib/auth";
 
 export function AdminNav({
   t,
   locale,
-  user,
   pendingCount,
 }: {
   t: Dictionary;
   locale: Locale;
-  user: User;
   pendingCount: number;
 }) {
   const pathname = usePathname();
+  const { isMobile } = useAppShellMobile();
   const links = [
     { href: "/admin", label: t.admin.title },
     { href: "/admin/providers", label: t.admin.providers },
@@ -33,6 +33,7 @@ export function AdminNav({
   return (
     <TopNav
       className="cmn-topnav"
+      label={t.admin.title}
       heading={
         <TopNavHeading
           logo={<BrandMark size={26} />}
@@ -45,7 +46,7 @@ export function AdminNav({
         />
       }
       startContent={
-        <HStack gap={1} align="center">
+        <>
           {links.map((link) => (
             <TopNavItem
               key={link.href}
@@ -56,7 +57,15 @@ export function AdminNav({
               }
             />
           ))}
-        </HStack>
+          {isMobile ? (
+            <>
+              <TopNavItem label={t.nav.dashboard} href="/dashboard" />
+              <form action={logoutAction}>
+                <Button type="submit" variant="ghost" label={t.nav.signOut} icon={<Logout size={16} />} />
+              </form>
+            </>
+          ) : null}
+        </>
       }
       endContent={
         <HStack gap={2} align="center">
@@ -70,23 +79,28 @@ export function AdminNav({
               icon={<Globe size={16} />}
             />
           </form>
-          <Button
-            variant="ghost"
-            size="sm"
-            label={t.dash.overview}
-            href="/dashboard"
-            icon={<ArrowLeft size={16} />}
-          />
-          <form action={logoutAction}>
-            <Button
-              type="submit"
-              variant="ghost"
-              size="sm"
-              label={t.nav.signOut}
-              isIconOnly
-              icon={<Logout size={16} />}
-            />
-          </form>
+          {!isMobile ? (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                label={t.dash.overview}
+                href="/dashboard"
+                icon={<ArrowLeft size={16} />}
+              />
+              <form action={logoutAction}>
+                <Button
+                  type="submit"
+                  variant="ghost"
+                  size="sm"
+                  label={t.nav.signOut}
+                  isIconOnly
+                  icon={<Logout size={16} />}
+                />
+              </form>
+            </>
+          ) : null}
+          <MobileNavToggle label={t.nav.menu} />
         </HStack>
       }
     />

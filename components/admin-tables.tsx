@@ -4,7 +4,7 @@ import { Badge } from "@astryxdesign/core/Badge";
 import { Button } from "@astryxdesign/core/Button";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Text } from "@astryxdesign/core/Text";
-import { Table, pixel } from "@astryxdesign/core/Table";
+import { Table, pixel } from "@/components/data-table";
 import { reviewModelAction, updateUserAction } from "@/app/actions/admin";
 import type { Dictionary } from "@/lib/i18n";
 

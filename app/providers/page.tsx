@@ -13,6 +13,7 @@ import { listPublicProviders } from "@/lib/pool";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { ProviderKeyForm } from "@/components/provider-key-form";
+import { PageShell } from "@/components/page-shell";
 
 
 export default async function ProvidersPage() {
@@ -26,8 +27,7 @@ export default async function ProvidersPage() {
   };
 
   return (
-    <VStack width="100%" minHeight="100vh" gap={0}>
-      <SiteHeader t={t} locale={locale} user={user} />
+    <PageShell topNav={<SiteHeader t={t} locale={locale} user={user} />}>
       <Section variant="transparent" padding={0}>
         <VStack
           className="cmn-page"
@@ -134,6 +134,6 @@ export default async function ProvidersPage() {
         </VStack>
       </Section>
       <SiteFooter t={t} />
-    </VStack>
+    </PageShell>
   );
 }

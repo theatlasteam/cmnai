@@ -7,6 +7,7 @@ import { createCaptcha } from "@/lib/captcha";
 import { dictionaries, getLocale } from "@/lib/i18n";
 import { SiteHeader } from "@/components/site-header";
 import { AuthForm } from "@/components/auth-form";
+import { PageShell } from "@/components/page-shell";
 
 
 
@@ -18,12 +19,11 @@ export default async function SignupPage() {
   const captcha = await createCaptcha();
 
   return (
-    <VStack width="100%" minHeight="100vh" gap={0}>
-      <SiteHeader t={t} locale={locale} user={null} />
+    <PageShell topNav={<SiteHeader t={t} locale={locale} user={null} />}>
       <Section variant="transparent" padding={0}>
         <VStack
           width="100%"
-          minHeight="calc(100vh - 64px)"
+          minHeight="calc(100dvh - var(--spacing-12))"
           align="center"
           justify="center"
           paddingInline={4}
@@ -40,6 +40,6 @@ export default async function SignupPage() {
           />
         </VStack>
       </Section>
-    </VStack>
+    </PageShell>
   );
 }

@@ -8,7 +8,7 @@ import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Heading } from "@astryxdesign/core/Heading";
 import { Text } from "@astryxdesign/core/Text";
 import { TextInput } from "@/components/form-fields";
-import { Table, pixel } from "@astryxdesign/core/Table";
+import { Table, pixel } from "@/components/data-table";
 import { Key, Plus, Trash } from "geist-icons";
 import {
   createKeyAction,

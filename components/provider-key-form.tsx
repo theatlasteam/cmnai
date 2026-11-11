@@ -22,8 +22,8 @@ export function ProviderKeyForm({
   );
 
   return (
-    <form action={formAction}>
-      <VStack gap={3}>
+    <form action={formAction} className="w-full">
+      <VStack gap={3} width="100%">
         <input type="hidden" name="providerId" value={providerId} />
         {state.error ? <Banner status="error" title={state.error} /> : null}
         {state.success ? <Banner status="success" title={state.success} /> : null}

@@ -120,6 +120,7 @@ export async function submitEndpointAction(
 
   revalidatePath("/dashboard/endpoints");
   revalidatePath("/providers");
+  revalidatePath("/dashboard", "layout");
   redirect(`/dashboard/endpoints?submitted=${verification.ok ? "verified" : "unverified"}`);
 }
 
@@ -169,6 +170,7 @@ export async function addProviderKeyAction(
   });
 
   revalidatePath("/providers");
+  revalidatePath("/dashboard", "layout");
 
   if (!verification.ok) {
     return {
