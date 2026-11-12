@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { invalidatePoolCache } from "@/lib/pool";
 import { requireAdmin } from "@/lib/auth";
 import { id, now, one, run } from "@/lib/db";
 import { parseProviderHeaders } from "@/lib/provider-headers";
@@ -84,6 +85,7 @@ export async function createProviderAction(formData: FormData) {
   revalidatePath("/admin/providers");
   revalidatePath("/admin");
   revalidatePath("/");
+  invalidatePoolCache();
 }
 
 export async function reviewProviderAction(formData: FormData) {
@@ -139,6 +141,7 @@ export async function reviewProviderAction(formData: FormData) {
   revalidatePath("/providers");
   revalidatePath("/dashboard", "layout");
 }
+  invalidatePoolCache();
 
 export async function reviewModelAction(formData: FormData) {
   const admin = await requireAdmin();
@@ -156,6 +159,7 @@ export async function reviewModelAction(formData: FormData) {
   revalidatePath("/admin/providers");
   revalidatePath("/");
 }
+  invalidatePoolCache();
 
 export async function updateProviderAction(formData: FormData) {
   const admin = await requireAdmin();
@@ -183,6 +187,7 @@ export async function updateProviderAction(formData: FormData) {
   revalidatePath("/admin/providers");
   revalidatePath("/admin");
 }
+  invalidatePoolCache();
 
 export async function updateUserAction(formData: FormData) {
   const admin = await requireAdmin();

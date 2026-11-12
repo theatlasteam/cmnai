@@ -125,6 +125,9 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 
 CREATE INDEX IF NOT EXISTS idx_models_provider ON models(provider_id);
+CREATE INDEX IF NOT EXISTS idx_models_model ON models(model_id, status);
 CREATE INDEX IF NOT EXISTS idx_usage_user ON usage_events(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_usage_event ON usage_events(event_id);
+CREATE INDEX IF NOT EXISTS idx_usage_model ON usage_events(model, created_at);
 CREATE INDEX IF NOT EXISTS idx_keys_user ON api_keys(user_id);
 CREATE INDEX IF NOT EXISTS idx_provider_keys_provider ON provider_keys(provider_id, status);

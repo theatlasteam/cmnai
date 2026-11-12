@@ -34,6 +34,7 @@ import {
   listPublicEvents,
   sharedQuotaRemaining,
 } from "@/lib/events";
+import { EventTime } from "@/components/event-time";
 
 
 
@@ -235,7 +236,7 @@ export default async function Home() {
                           <Clock size={14} />
                           <Text type="supporting" color="secondary">
                             {t.events.until}{" "}
-                            {new Date(event.ends_at).toLocaleString(locale)}
+                            <EventTime iso={event.ends_at} locale={locale} />
                           </Text>
                         </HStack>
                       </HStack>

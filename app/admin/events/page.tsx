@@ -56,7 +56,8 @@ export default async function AdminEventsPage() {
         event.kind === "shared_quota" && remaining !== null
           ? `${remaining.toLocaleString(locale)} left`
           : "—",
-      window: `${new Date(event.starts_at).toLocaleString(locale)} → ${new Date(event.ends_at).toLocaleString(locale)}`,
+      startsAt: event.starts_at,
+      endsAt: event.ends_at,
       live: isEventLive(event),
     };
   });
@@ -90,6 +91,7 @@ export default async function AdminEventsPage() {
         presets={presets}
         modelOptions={modelOptions}
         copy={copy}
+        locale={locale}
       />
     </>
   );

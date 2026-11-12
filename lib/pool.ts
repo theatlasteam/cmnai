@@ -26,16 +26,51 @@ export type PublicModel = {
   provider: string;
 };
 
+/**
+ * The pool is read on every request but changes rarely, so a short lived
+ * cache keeps D1 out of the hot path. Admin edits drop the cache straight
+ * away; the expiry is only a backstop for changes made elsewhere.
+ */
+const POOL_CACHE_TTL_MS = 15_000;
+const LIST_CACHE_TTL_MS = 60_000;
+
+type CacheEntry = { value: unknown; expires: number };
+
+const poolCache = new Map<string, CacheEntry>();
+
+function cached<T>(key: string, ttl: number, load: () => Promise<T>): Promise<T> {
+  const hit = poolCache.get(key);
+  const now = Date.now();
+  if (hit && hit.expires > now) return Promise.resolve(hit.value as T);
+  return load().then((value) => {
+    poolCache.set(key, { value, expires: now + ttl });
+    return value;
+  });
+}
+
+/** Drops every cached pool row. Called when the pool itself changes. */
+export function invalidatePoolCache(): void {
+  poolCache.clear();
+}
+
 export async function listPublicPool(): Promise<PublicModel[]> {
-  return all<PublicModel>(
-    `SELECT m.model_id AS id, m.display_name, m.context_window, p.name AS provider
-     FROM models m JOIN providers p ON p.id = m.provider_id
-     WHERE m.status = 'approved' AND p.status = 'approved'
-     ORDER BY p.priority DESC, m.display_name ASC`,
+  return cached("pool:public", LIST_CACHE_TTL_MS, () =>
+    all<PublicModel>(
+      `SELECT m.model_id AS id, m.display_name, m.context_window, p.name AS provider
+       FROM models m JOIN providers p ON p.id = m.provider_id
+       WHERE m.status = 'approved' AND p.status = 'approved'
+       ORDER BY p.priority DESC, m.display_name ASC`,
+    ),
   );
 }
 
 export async function resolveCandidates(modelKey: string): Promise<PoolModel[]> {
+  return cached(`pool:candidates:${modelKey}`, POOL_CACHE_TTL_MS, () =>
+    loadCandidates(modelKey),
+  );
+}
+
+async function loadCandidates(modelKey: string): Promise<PoolModel[]> {
   const rows = await all<PoolModel>(
     `SELECT m.model_id AS model_key, m.display_name, m.context_window,
             p.id AS provider_id, p.name AS provider_name, p.base_url, p.api_mode, p.headers_json,
@@ -93,35 +128,37 @@ export type PublicProvider = {
 };
 
 export async function listPublicProviders(): Promise<PublicProvider[]> {
-  const [providers, models] = await Promise.all([
-    all<{
-      id: string;
-      name: string;
-      base_url: string;
-      api_mode: ProviderMode;
-      priority: number;
-      verified_keys: number;
-    }>(
-      `SELECT p.id, p.name, p.base_url, p.api_mode, p.priority,
-              (SELECT COUNT(*) FROM provider_keys k
-                WHERE k.provider_id = p.id AND k.status = 'verified') AS verified_keys
-       FROM providers p WHERE p.status = 'approved'
-       ORDER BY p.priority DESC, p.name ASC`,
-    ),
-    all<ProviderModel & { provider_id: string }>(
-      `SELECT m.provider_id, m.model_id, m.display_name, m.context_window
-       FROM models m JOIN providers p ON p.id = m.provider_id
-       WHERE m.status = 'approved' AND p.status = 'approved'
-       ORDER BY m.display_name ASC`,
-    ),
-  ]);
+  return cached("pool:providers", LIST_CACHE_TTL_MS, async () => {
+    const [providers, models] = await Promise.all([
+      all<{
+        id: string;
+        name: string;
+        base_url: string;
+        api_mode: ProviderMode;
+        priority: number;
+        verified_keys: number;
+      }>(
+        `SELECT p.id, p.name, p.base_url, p.api_mode, p.priority,
+                (SELECT COUNT(*) FROM provider_keys k
+                  WHERE k.provider_id = p.id AND k.status = 'verified') AS verified_keys
+         FROM providers p WHERE p.status = 'approved'
+         ORDER BY p.priority DESC, p.name ASC`,
+      ),
+      all<ProviderModel & { provider_id: string }>(
+        `SELECT m.provider_id, m.model_id, m.display_name, m.context_window
+         FROM models m JOIN providers p ON p.id = m.provider_id
+         WHERE m.status = 'approved' AND p.status = 'approved'
+         ORDER BY m.display_name ASC`,
+      ),
+    ]);
 
-  return providers.map((provider) => ({
-    ...provider,
-    models: models
-      .filter((model) => model.provider_id === provider.id)
-      .map(({ provider_id: _providerId, ...model }) => model),
-  }));
+    return providers.map((provider) => ({
+      ...provider,
+      models: models
+        .filter((model) => model.provider_id === provider.id)
+        .map(({ provider_id: _providerId, ...model }) => model),
+    }));
+  });
 }
 
 

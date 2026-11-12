@@ -73,6 +73,18 @@ describe("event persistence", () => {
     expect(hours).toBe(48);
   });
 
+  test("the stored instant is kept exactly as sent", async () => {
+    // The browser resolves a local wall-clock value into an absolute instant
+    // before submitting. The server must store that instant, not reinterpret
+    // it in its own timezone.
+    const eventId = await makeEvent({
+      starts_at: "2026-11-12T09:11:00.000Z",
+    });
+    const event = await getEvent(eventId);
+    expect(event.starts_at).toBe("2026-11-12T09:11:00.000Z");
+    expect(event.ends_at).toBe("2026-11-14T09:11:00.000Z");
+  });
+
   test("an update rewrites the editable fields", async () => {
     const eventId = await makeEvent();
     await updateEvent(eventId, {

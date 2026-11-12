@@ -11,6 +11,7 @@ import {
   setEventStatusAction,
 } from "@/app/actions/events";
 import type { Dictionary } from "@/lib/i18n";
+import { EventTime } from "@/components/event-time";
 
 export type EventRow = {
   id: string;
@@ -20,7 +21,8 @@ export type EventRow = {
   status: string;
   models: string;
   budget: string;
-  window: string;
+  startsAt: string;
+  endsAt: string;
   live: boolean;
 };
 
@@ -31,10 +33,12 @@ export type EventRow = {
 export function AdminEventsTable({
   rows,
   copy,
+  locale,
   onEdit,
 }: {
   rows: EventRow[];
   copy: Dictionary["events"];
+  locale: string;
   onEdit?: (id: string) => void;
 }) {
   return (
@@ -66,7 +70,20 @@ export function AdminEventsTable({
         { key: "status", header: copy.tableStatus },
         { key: "models", header: copy.tableModels },
         { key: "budget", header: copy.tableBudget, align: "end" as const },
-        { key: "window", header: copy.tableWindow },
+        {
+          key: "window",
+          header: copy.tableWindow,
+          renderCell: (row) => (
+            <VStack gap={1} align="start">
+              <Text type="supporting" color="secondary">
+                <EventTime iso={String(row.startsAt)} locale={locale} />
+              </Text>
+              <Text type="supporting" color="secondary">
+                <EventTime iso={String(row.endsAt)} locale={locale} />
+              </Text>
+            </VStack>
+          ),
+        },
         {
           key: "actions",
           header: "",

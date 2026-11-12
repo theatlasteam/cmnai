@@ -11,6 +11,7 @@ import {
   type PresetOption,
 } from "@/components/event-editor";
 import type { Dictionary } from "@/lib/i18n";
+import { toLocalInputValue } from "@/lib/event-time";
 
 export type EditableEvent = {
   id: string;
@@ -25,14 +26,6 @@ export type EditableEvent = {
   badge: string | null;
 };
 
-/** `datetime-local` wants a local wall-clock value, not an ISO instant. */
-function toLocalInputValue(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
 /**
  * The events tab. It holds which event is being edited so the same editor
  * serves both creating and changing an event.
@@ -43,12 +36,14 @@ export function AdminEventsPanel({
   presets,
   modelOptions,
   copy,
+  locale,
 }: {
   rows: EventRow[];
   events: EditableEvent[];
   presets: PresetOption[];
   modelOptions: string[];
   copy: Dictionary["events"];
+  locale: string;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -81,7 +76,7 @@ export function AdminEventsPanel({
 
       {rows.length > 0 ? (
         <Card padding={0}>
-          <AdminEventsTable rows={rows} copy={copy} onEdit={setEditingId} />
+          <AdminEventsTable rows={rows} copy={copy} locale={locale} onEdit={setEditingId} />
         </Card>
       ) : (
         <EmptyState

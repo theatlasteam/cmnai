@@ -28,6 +28,9 @@ const CORS = {
   "Access-Control-Allow-Headers": "Authorization, Content-Type",
 };
 
+/** A completion is never cacheable: it bills tokens and may be personal. */
+const NO_STORE = { "Cache-Control": "no-store" };
+
 function limitHeaders(
   rate: Awaited<ReturnType<typeof rateLimitStatus>>,
   usage: Awaited<ReturnType<typeof usageToday>>,
@@ -50,7 +53,7 @@ function errorResponse(
 ) {
   return Response.json(
     { error: { message, type: "cmnai_error", code } },
-    { status, headers: { ...CORS, ...headers } },
+    { status, headers: { ...CORS, ...NO_STORE, ...headers } },
   );
 }
 
@@ -309,7 +312,7 @@ export async function POST(request: Request) {
         ...CORS,
         ...quotaHeaders,
         "Content-Type": "text/event-stream; charset=utf-8",
-        "Cache-Control": "no-cache, no-transform",
+        "Cache-Control": "no-store, no-transform",
         Connection: "keep-alive",
       },
     });
@@ -373,7 +376,7 @@ export async function POST(request: Request) {
             total_tokens: completion.promptTokens + completion.completionTokens,
           },
         },
-        { headers: { ...CORS, ...quotaHeaders } },
+        { headers: { ...CORS, ...NO_STORE, ...quotaHeaders } },
       );
     } catch (error) {
       const details = logUpstreamFailure(route, error);

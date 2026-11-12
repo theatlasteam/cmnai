@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { Badge } from "@astryxdesign/core/Badge";
 import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
@@ -20,6 +20,7 @@ import {
   type EventActionState,
 } from "@/app/actions/events";
 import type { Dictionary } from "@/lib/i18n";
+import { localStartToInstant } from "@/lib/event-time";
 
 export type EventDraft = {
   id: string;
@@ -84,6 +85,14 @@ export function EventEditor({
     draft ? String(draft.durationHours) : String(presets[0]?.durationHours ?? 48),
   );
   const [startsAt, setStartsAt] = useState<string>(draft?.startsAt ?? "");
+  // The picker gives a local wall-clock value with no timezone. The browser
+  // knows the reader's offset, so it converts that value to the absolute
+  // instant the admin actually meant before the form is submitted.
+  const [startsAtUtc, setStartsAtUtc] = useState<string>("");
+
+  useEffect(() => {
+    setStartsAtUtc(localStartToInstant(startsAt));
+  }, [startsAt]);
   const [title, setTitle] = useState<string>(draft?.title ?? presets[0]?.title ?? "");
   const [description, setDescription] = useState<string>(
     draft?.description ?? presets[0]?.description ?? "",
@@ -229,7 +238,7 @@ export function EventEditor({
               />
               <TextInput
                 label={copy.startsAt}
-                htmlName="startsAt"
+                htmlName="startsAtLocal"
                 type="datetime-local"
                 value={startsAt}
                 onChange={setStartsAt}
@@ -237,6 +246,12 @@ export function EventEditor({
                 isRequired
                 width="100%"
               />
+              <input type="hidden" name="startsAt" value={startsAtUtc} />
+              {startsAtUtc ? (
+                <Text type="supporting" color="secondary">
+                  {copy.startsAtUtc} {startsAtUtc}
+                </Text>
+              ) : null}
               <SelectField
                 label={copy.status}
                 htmlName="status"

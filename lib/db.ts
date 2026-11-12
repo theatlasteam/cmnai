@@ -186,6 +186,16 @@ async function ensureMigrations(db: D1Database): Promise<void> {
     await db.prepare("ALTER TABLE users ADD COLUMN google_id TEXT").run();
   }
 
+  // The pool is read on every request, so the columns it filters on are
+  // indexed. Creating an index that already exists is a no-op.
+  for (const statement of [
+    "CREATE INDEX IF NOT EXISTS idx_models_model ON models(model_id, status)",
+    "CREATE INDEX IF NOT EXISTS idx_usage_event ON usage_events(event_id)",
+    "CREATE INDEX IF NOT EXISTS idx_usage_model ON usage_events(model, created_at)",
+  ]) {
+    await db.prepare(statement).run();
+  }
+
   // The events table was added after the first release, so an existing
   // database needs it created on the fly.
   const hasEvents = await db

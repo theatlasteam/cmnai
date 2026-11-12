@@ -92,6 +92,26 @@
       var(--color-background-body, #111112);
   }
 
+  /* Event takeover: the live event owns the whole screen, so it gets its
+     own wash of colour instead of the plain page background. */
+  .cmn-event {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    background:
+      radial-gradient(
+        900px 520px at 50% -10%,
+        color-mix(in srgb, var(--color-accent, #f1f1f1) 14%, transparent),
+        transparent 70%
+      ),
+      radial-gradient(
+        700px 460px at 12% 108%,
+        color-mix(in srgb, var(--color-accent, #f1f1f1) 7%, transparent),
+        transparent 65%
+      ),
+      var(--color-background-body, #111112);
+  }
+
   .cmn-page {
     margin-inline: auto;
     min-inline-size: 0;

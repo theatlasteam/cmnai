@@ -4,7 +4,24 @@ import { id, now, run } from "./db";
 const ADMIN_EMAIL = process.env.CMNAI_ADMIN_EMAIL ?? "admin@cmnai.dev";
 const ADMIN_PASSWORD = process.env.CMNAI_ADMIN_PASSWORD ?? "cmnai-admin-2026";
 
+/**
+ * Seeding is claimed once per database, but the claim was previously made on
+ * every request, which cost a D1 write each time. An isolate only needs to
+ * try once; if it fails, the next request tries again.
+ */
+let seedAttempt: Promise<void> | undefined;
+
 export async function seed(): Promise<void> {
+  if (!seedAttempt) {
+    seedAttempt = runSeed().catch((error) => {
+      seedAttempt = undefined;
+      throw error;
+    });
+  }
+  return seedAttempt;
+}
+
+async function runSeed(): Promise<void> {
   // Claim the seed once, even if two isolates start at the same time.
   const claim = await run(
     "INSERT OR IGNORE INTO meta (key, value) VALUES ('seeded', ?)",

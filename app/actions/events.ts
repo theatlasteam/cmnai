@@ -11,6 +11,7 @@ import {
   type EventStatus,
 } from "@/lib/events";
 import { all } from "@/lib/db";
+import { parseEventStart } from "@/lib/event-time";
 
 export type EventActionState = {
   error?: string;
@@ -56,7 +57,7 @@ export async function createEventAction(
     return { error: "A shared quota needs a token budget." };
   }
 
-  const startsAt = String(formData.get("startsAt") ?? "").trim();
+  const startsAt = parseEventStart(formData);
   const durationHours = parseNumber(formData.get("durationHours")) ?? 48;
   if (!startsAt) return { error: "Pick when the event starts." };
   if (durationHours <= 0) return { error: "The event must last at least an hour." };
@@ -97,7 +98,7 @@ export async function updateEventAction(
     return { error: "A shared quota needs a token budget." };
   }
 
-  const startsAt = String(formData.get("startsAt") ?? "").trim();
+  const startsAt = parseEventStart(formData);
   const durationHours = parseNumber(formData.get("durationHours")) ?? 48;
   if (!startsAt) return { error: "Pick when the event starts." };
 

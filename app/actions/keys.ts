@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { invalidatePoolCache } from "@/lib/pool";
 import { redirect } from "next/navigation";
 import {
   createApiKeyForUser,
@@ -121,6 +122,7 @@ export async function submitEndpointAction(
   revalidatePath("/dashboard/endpoints");
   revalidatePath("/providers");
   revalidatePath("/dashboard", "layout");
+  invalidatePoolCache();
   redirect(`/dashboard/endpoints?submitted=${verification.ok ? "verified" : "unverified"}`);
 }
 
@@ -171,6 +173,7 @@ export async function addProviderKeyAction(
 
   revalidatePath("/providers");
   revalidatePath("/dashboard", "layout");
+  invalidatePoolCache();
 
   if (!verification.ok) {
     return {
@@ -197,6 +200,7 @@ export async function removeOwnEndpointAction(formData: FormData) {
     await run("DELETE FROM providers WHERE id = ?", providerId);
   }
   revalidatePath("/dashboard/endpoints");
+  invalidatePoolCache();
 }
 
 export async function getOwnEndpoints(userId: string) {
