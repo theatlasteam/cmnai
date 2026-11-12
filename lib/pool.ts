@@ -135,11 +135,12 @@ export async function recordUsage(input: {
   status: string;
   latencyMs: number;
   error?: string | null;
+  eventId?: string | null;
 }): Promise<void> {
   await run(
     `INSERT INTO usage_events
-      (id, api_key_id, user_id, provider_id, model, prompt_tokens, completion_tokens, status, error, latency_ms, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, api_key_id, user_id, provider_id, model, prompt_tokens, completion_tokens, status, error, latency_ms, event_id, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id("use_"),
     input.apiKeyId,
     input.userId,
@@ -150,6 +151,7 @@ export async function recordUsage(input: {
     input.status,
     input.error ?? null,
     input.latencyMs,
+    input.eventId ?? null,
     now(),
   );
 }
@@ -244,7 +246,10 @@ export function utcDayStart(daysAgo = 0): string {
 
 export type DailyUsage = {
   requests: number;
+  /** Tokens charged to the personal budget (excludes event-covered usage). */
   tokens: number;
+  /** Tokens spent on models an event currently covers. */
+  eventTokens: number;
   isContributor: boolean;
   limit: number;
   remaining: number;
@@ -252,9 +257,19 @@ export type DailyUsage = {
 };
 
 export async function usageToday(userId: string): Promise<DailyUsage> {
-  const row = await one<{ requests: number; tokens: number; is_contributor: number }>(
+  const row = await one<{
+    requests: number;
+    tokens: number;
+    event_tokens: number;
+    is_contributor: number;
+  }>(
     `SELECT COUNT(*) AS requests,
-            COALESCE(SUM(prompt_tokens + completion_tokens), 0) AS tokens,
+            COALESCE(SUM(CASE WHEN event_id IS NULL
+                              THEN prompt_tokens + completion_tokens
+                              ELSE 0 END), 0) AS tokens,
+            COALESCE(SUM(CASE WHEN event_id IS NOT NULL
+                              THEN prompt_tokens + completion_tokens
+                              ELSE 0 END), 0) AS event_tokens,
             EXISTS (
               SELECT 1 FROM provider_keys k
               JOIN providers p ON p.id = k.provider_id
@@ -273,6 +288,7 @@ export async function usageToday(userId: string): Promise<DailyUsage> {
   return {
     requests: row?.requests ?? 0,
     tokens,
+    eventTokens: row?.event_tokens ?? 0,
     isContributor,
     limit,
     remaining: Math.max(0, limit - tokens),

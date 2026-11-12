@@ -75,6 +75,23 @@ CREATE TABLE IF NOT EXISTS provider_keys (
   created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS events (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  kind TEXT NOT NULL DEFAULT 'free_window',
+  models TEXT NOT NULL DEFAULT '',
+  quota_tokens INTEGER,
+  tokens_used INTEGER NOT NULL DEFAULT 0,
+  duration_hours INTEGER NOT NULL DEFAULT 48,
+  starts_at TEXT NOT NULL,
+  ends_at TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'draft',
+  badge TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS usage_events (
   id TEXT PRIMARY KEY,
   api_key_id TEXT REFERENCES api_keys(id) ON DELETE SET NULL,
@@ -86,6 +103,7 @@ CREATE TABLE IF NOT EXISTS usage_events (
   status TEXT NOT NULL,
   error TEXT,
   latency_ms INTEGER NOT NULL DEFAULT 0,
+  event_id TEXT REFERENCES events(id) ON DELETE SET NULL,
   created_at TEXT NOT NULL
 );
 

@@ -10,7 +10,7 @@ import {
 type UncontrolledInputProps = Omit<TextInputProps, "value" | "type"> & {
   value?: string;
   defaultValue?: string;
-  type?: TextInputProps["type"] | "url" | "number";
+  type?: TextInputProps["type"] | "url" | "number" | "datetime-local";
 };
 
 /**
@@ -24,7 +24,14 @@ export function TextInput({
   type,
   ...props
 }: UncontrolledInputProps) {
-  const htmlType = type === "url" || type === "number" ? "text" : type;
+  // Astryx only styles text, password and email inputs; the other native
+  // types are passed through as-is so the browser renders its own control.
+  const htmlType =
+    type === "url" || type === "number"
+      ? "text"
+      : type === "datetime-local"
+        ? ("datetime-local" as TextInputProps["type"])
+        : type;
   const extra = { value, defaultValue } as unknown as TextInputProps;
   return <AstryxTextInput {...props} type={htmlType} {...extra} />;
 }

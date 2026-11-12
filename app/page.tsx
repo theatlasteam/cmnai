@@ -14,11 +14,13 @@ import { Divider } from "@astryxdesign/core/Divider";
 import {
   ArrowRight,
   ChartActivity,
+  Clock,
   Globe,
   Key,
   Layers,
   Servers,
   ShieldCheck,
+  Sparkles,
   Users,
 } from "geist-icons";
 import { getLocale, dictionaries } from "@/lib/i18n";
@@ -28,13 +30,21 @@ import { getSiteUrl } from "@/lib/site";
 import { SiteHeader } from "@/components/site-header";
 import { StatusBadge } from "@/components/status-badge";
 import { PageShell } from "@/components/page-shell";
+import {
+  listPublicEvents,
+  sharedQuotaRemaining,
+} from "@/lib/events";
 
 
 
 export default async function Home() {
   const [locale, user] = await Promise.all([getLocale(), getCurrentUser()]);
   const t = dictionaries[locale];
-  const [stats, models] = await Promise.all([poolStats(), listPublicPool()]);
+  const [stats, models, events] = await Promise.all([
+    poolStats(),
+    listPublicPool(),
+    listPublicEvents(),
+  ]);
   const apiBase = `${await getSiteUrl()}/v1`;
   const curlExample = `curl ${apiBase}/chat/completions \\
   -H "Authorization: Bearer YOUR_KEY" \\
@@ -175,6 +185,81 @@ export default async function Home() {
           </Card>
         </VStack>
       </Section>
+
+      {events.length > 0 ? (
+        <Section variant="transparent" padding={0}>
+          <VStack
+            id="events"
+            className="cmn-page"
+            maxWidth={1120}
+            width="100%"
+            paddingInline={6}
+            paddingBlock={10}
+            gap={5}
+          >
+            <VStack gap={2}>
+              <Heading level={2}>{t.events.title}</Heading>
+              <Text type="body" color="secondary" className="max-w-2xl">
+                {t.events.publicSubtitle}
+              </Text>
+            </VStack>
+
+            <Grid columns={{ minWidth: 280, max: 3 }} gap={4} width="100%">
+              {events.map((event) => {
+                const remaining = sharedQuotaRemaining(event);
+                return (
+                  <Card key={event.id} padding={5}>
+                    <VStack gap={3} align="start">
+                      <HStack gap={2} align="center" wrap="wrap">
+                        <Sparkles size={18} />
+                        <Heading level={3}>{event.title}</Heading>
+                        {event.badge ? (
+                          <Badge variant="success" label={event.badge} />
+                        ) : null}
+                      </HStack>
+                      {event.description ? (
+                        <Text type="body" color="secondary">
+                          {event.description}
+                        </Text>
+                      ) : null}
+                      <HStack gap={3} align="center" wrap="wrap">
+                        <Badge
+                          variant="neutral"
+                          label={
+                            event.kind === "shared_quota"
+                              ? t.events.sharedQuota
+                              : t.events.freeWindow
+                          }
+                        />
+                        <HStack gap={1} align="center">
+                          <Clock size={14} />
+                          <Text type="supporting" color="secondary">
+                            {t.events.until}{" "}
+                            {new Date(event.ends_at).toLocaleString(locale)}
+                          </Text>
+                        </HStack>
+                      </HStack>
+                      {remaining !== null ? (
+                        <Text type="supporting" color="secondary">
+                          {new Intl.NumberFormat(locale).format(remaining)}{" "}
+                          {t.events.tokensLeft}
+                        </Text>
+                      ) : null}
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        label={t.events.seeEvent}
+                        href="/dashboard/events"
+                        icon={<ArrowRight size={14} />}
+                      />
+                    </VStack>
+                  </Card>
+                );
+              })}
+            </Grid>
+          </VStack>
+        </Section>
+      ) : null}
 
       <Section variant="transparent" padding={0}>
         <VStack

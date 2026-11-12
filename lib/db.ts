@@ -95,7 +95,25 @@ CREATE TABLE IF NOT EXISTS usage_events (
   status TEXT NOT NULL,
   error TEXT,
   latency_ms INTEGER NOT NULL DEFAULT 0,
+  event_id TEXT REFERENCES events(id) ON DELETE SET NULL,
   created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS events (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  kind TEXT NOT NULL DEFAULT 'free_window',
+  models TEXT NOT NULL DEFAULT '',
+  quota_tokens INTEGER,
+  tokens_used INTEGER NOT NULL DEFAULT 0,
+  duration_hours INTEGER NOT NULL DEFAULT 48,
+  starts_at TEXT NOT NULL,
+  ends_at TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'draft',
+  badge TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS captchas (
@@ -159,10 +177,41 @@ async function ensureMigrations(db: D1Database): Promise<void> {
   if (!usageColumns.has("error")) {
     await db.prepare("ALTER TABLE usage_events ADD COLUMN error TEXT").run();
   }
+  if (!usageColumns.has("event_id")) {
+    await db.prepare("ALTER TABLE usage_events ADD COLUMN event_id TEXT").run();
+  }
 
   const userColumns = await tableColumns(db, "users");
   if (!userColumns.has("google_id")) {
     await db.prepare("ALTER TABLE users ADD COLUMN google_id TEXT").run();
+  }
+
+  // The events table was added after the first release, so an existing
+  // database needs it created on the fly.
+  const hasEvents = await db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'events'")
+    .first();
+  if (!hasEvents) {
+    await db
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS events (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          description TEXT NOT NULL DEFAULT '',
+          kind TEXT NOT NULL DEFAULT 'free_window',
+          models TEXT NOT NULL DEFAULT '',
+          quota_tokens INTEGER,
+          tokens_used INTEGER NOT NULL DEFAULT 0,
+          duration_hours INTEGER NOT NULL DEFAULT 48,
+          starts_at TEXT NOT NULL,
+          ends_at TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'draft',
+          badge TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )`,
+      )
+      .run();
   }
 }
 

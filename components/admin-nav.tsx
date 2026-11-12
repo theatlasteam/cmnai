@@ -28,6 +28,7 @@ export function AdminNav({
     { href: "/admin", label: t.admin.title },
     { href: "/admin/providers", label: t.admin.providers },
     { href: "/admin/users", label: t.admin.users },
+    { href: "/admin/events", label: "Events" },
   ];
 
   return (

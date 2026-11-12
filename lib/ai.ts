@@ -4,11 +4,16 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { APICallError, generateText, streamText } from "ai";
 import type { PoolModel } from "./pool";
 import { parseProviderHeaders, providerHeaderNames } from "./provider-headers";
+import {
+  toModelMessages,
+  toToolChoice,
+  toToolSet,
+  type ChatMessage,
+  type ChatTool,
+  type ChatToolChoice,
+} from "./openai-protocol";
 
-export type ChatMessage = {
-  role: "system" | "user" | "assistant";
-  content: string;
-};
+export type { ChatMessage, ChatTool, ChatToolChoice };
 
 function providerName(route: PoolModel): string {
   return route.provider_name.replace(/\s+/g, "-").toLowerCase();
@@ -62,7 +67,9 @@ export function estimateTokens(text: string): number {
 }
 
 export function promptText(messages: ChatMessage[]): string {
-  return messages.map((m) => `${m.role}: ${m.content}`).join("\n");
+  return messages
+    .map((m) => `${m.role}: ${typeof m.content === "string" ? m.content : ""}`)
+    .join("\n");
 }
 
 /**
@@ -94,22 +101,42 @@ export function logUpstreamFailure(route: PoolModel, error: unknown): string {
   return details;
 }
 
+export type CompletionOptions = {
+  temperature?: number;
+  maxTokens?: number;
+  tools?: ChatTool[];
+  toolChoice?: ChatToolChoice;
+};
+
 export async function complete(
   route: PoolModel,
   messages: ChatMessage[],
-  options: { temperature?: number; maxTokens?: number } = {},
+  options: CompletionOptions = {},
 ) {
+  const { instructions, messages: modelMessages } = toModelMessages(messages);
   const result = await generateText({
     model: modelFor(route),
-    messages,
+    messages: modelMessages,
+    ...(instructions ? { instructions } : {}),
     temperature: options.temperature,
     maxOutputTokens: options.maxTokens,
+    tools: toToolSet(options.tools),
+    toolChoice: toToolChoice(options.toolChoice),
   });
   const usage = result.usage as
     | { inputTokens?: number; outputTokens?: number; promptTokens?: number; completionTokens?: number }
     | undefined;
+  const toolCalls = (result.toolCalls ?? []).map((call) => ({
+    id: call.toolCallId,
+    type: "function" as const,
+    function: {
+      name: call.toolName,
+      arguments: JSON.stringify(call.input ?? {}),
+    },
+  }));
   return {
     text: result.text,
+    toolCalls,
     finishReason: result.finishReason,
     promptTokens: usage?.inputTokens ?? usage?.promptTokens ?? estimateTokens(promptText(messages)),
     completionTokens:
@@ -120,12 +147,16 @@ export async function complete(
 export function stream(
   route: PoolModel,
   messages: ChatMessage[],
-  options: { temperature?: number; maxTokens?: number } = {},
+  options: CompletionOptions = {},
 ) {
+  const { instructions, messages: modelMessages } = toModelMessages(messages);
   return streamText({
     model: modelFor(route),
-    messages,
+    messages: modelMessages,
+    ...(instructions ? { instructions } : {}),
     temperature: options.temperature,
     maxOutputTokens: options.maxTokens,
+    tools: toToolSet(options.tools),
+    toolChoice: toToolChoice(options.toolChoice),
   });
 }
