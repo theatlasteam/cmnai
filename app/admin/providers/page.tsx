@@ -23,6 +23,7 @@ import {
   reviewProviderAction,
   updateProviderAction,
 } from "@/app/actions/admin";
+import { updateEndpointModelsAction } from "@/app/actions/keys";
 import { StatusBadge } from "@/components/status-badge";
 
 
@@ -63,6 +64,27 @@ export default async function AdminProvidersPage() {
     context_window: number | null;
     status: string;
   }>("SELECT * FROM models ORDER BY created_at ASC");
+
+  // A provider that is out of credit still sits in rotation and fails every
+  // request until someone pauses it, so the admin needs to see that here.
+  const health = await all<{
+    provider_id: string;
+    errors: number;
+    requests: number;
+    last_error: string | null;
+  }>(
+    `SELECT u.provider_id,
+            SUM(CASE WHEN u.status = 'error' THEN 1 ELSE 0 END) AS errors,
+            COUNT(*) AS requests,
+            (SELECT u2.error FROM usage_events u2
+              WHERE u2.provider_id = u.provider_id AND u2.status = 'error'
+                AND u2.error IS NOT NULL
+              ORDER BY u2.created_at DESC LIMIT 1) AS last_error
+     FROM usage_events u
+     WHERE u.created_at >= datetime('now', '-1 day')
+     GROUP BY u.provider_id`,
+  );
+  const healthByProvider = new Map(health.map((row) => [row.provider_id, row]));
 
   const apiModeOptions = [
     { value: "chat_completions", label: t.dash.apiModeChat },
@@ -156,6 +178,11 @@ export default async function AdminProvidersPage() {
 
       {providers.map((provider) => {
         const providerModels = models.filter((model) => model.provider_id === provider.id);
+        const providerHealth = healthByProvider.get(provider.id);
+        const errorRate =
+          providerHealth && providerHealth.requests > 0
+            ? providerHealth.errors / providerHealth.requests
+            : 0;
         return (
           <Card key={provider.id} padding={5}>
             <VStack gap={4}>
@@ -169,8 +196,19 @@ export default async function AdminProvidersPage() {
                       label={apiModeLabels[provider.api_mode] ?? t.dash.apiModeChat}
                     />
                     <Badge variant="neutral" label={`${t.admin.priority}: ${provider.priority}`} />
+                    {providerHealth && providerHealth.errors > 0 ? (
+                      <Badge
+                        variant={errorRate > 0.5 ? "error" : "warning"}
+                        label={`${providerHealth.errors}/${providerHealth.requests} failed`}
+                      />
+                    ) : null}
                   </HStack>
                   <Text type="code">{provider.base_url}</Text>
+                  {providerHealth?.last_error ? (
+                    <Text type="supporting" color="secondary">
+                      {providerHealth.last_error.slice(0, 200)}
+                    </Text>
+                  ) : null}
                   {providerHeaderNames(provider.headers_json).length > 0 ? (
                     <Text type="supporting" color="secondary">
                       {t.admin.maskHeaders}:{" "}
@@ -250,6 +288,20 @@ export default async function AdminProvidersPage() {
                     </Card>
                   ))}
                 </HStack>
+                <form action={updateEndpointModelsAction}>
+                  <input type="hidden" name="providerId" value={provider.id} />
+                  <HStack gap={2} align="end" wrap="wrap" width="100%">
+                    <VStack gap={1} width="100%" maxWidth={520}>
+                      <TextInput
+                        label={t.dash.models}
+                        htmlName="models"
+                        defaultValue={providerModels.map((m) => m.model_id).join(", ")}
+                        placeholder="gpt-4o, claude-3-5-sonnet"
+                      />
+                    </VStack>
+                    <Button type="submit" size="sm" variant="secondary" label="Save" />
+                  </HStack>
+                </form>
               </VStack>
 
               <form action={updateProviderAction}>
