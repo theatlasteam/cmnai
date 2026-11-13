@@ -48,8 +48,44 @@ export type ChatToolChoice =
   | "required"
   | { type: "function"; function: { name: string } };
 
-function textOf(content: ChatMessage["content"]): string {
-  return typeof content === "string" ? content : "";
+function textOf(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (typeof part === "object" && part !== null && "text" in part) {
+          return String((part as { text?: unknown }).text ?? "");
+        }
+        return "";
+      })
+      .join("");
+  }
+  return "";
+}
+
+function userContentOf(
+  content: ChatMessage["content"],
+): string | Array<{ type: "text"; text: string } | { type: "image"; image: string }> {
+  if (!Array.isArray(content)) return textOf(content);
+  const parts: Array<{ type: "text"; text: string } | { type: "image"; image: string }> = [];
+  for (const part of content) {
+    if (!part || typeof part !== "object") continue;
+    const p = part as Record<string, unknown>;
+    if ((p.type === "text" || p.type === "input_text") && typeof p.text === "string") {
+      parts.push({ type: "text", text: p.text });
+    } else if (p.type === "image_url" || p.type === "input_image") {
+      const rawUrl =
+        typeof p.image_url === "string"
+          ? p.image_url
+          : p.image_url && typeof p.image_url === "object"
+            ? (p.image_url as { url?: unknown }).url
+            : p.url;
+      if (typeof rawUrl === "string" && rawUrl) {
+        parts.push({ type: "image", image: rawUrl });
+      }
+    }
+  }
+  return parts.length > 0 ? parts : textOf(content);
 }
 
 /**
@@ -105,7 +141,7 @@ export function toModelMessages(messages: ChatMessage[]): {
       continue;
     }
 
-    modelMessages.push({ role: "user", content: text });
+    modelMessages.push({ role: "user", content: userContentOf(message.content) });
   }
 
   return {
