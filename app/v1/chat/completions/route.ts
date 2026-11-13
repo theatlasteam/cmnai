@@ -1,9 +1,12 @@
 import { authenticateApiKey } from "@/lib/auth";
 import { seed } from "@/lib/seed";
 import {
+  clearProviderCircuit,
+  openProviderCircuit,
   rateLimitStatus,
   recordUsage,
   resolveCandidates,
+  usageThisWeek,
   usageToday,
 } from "@/lib/pool";
 import {
@@ -19,6 +22,18 @@ import {
   promptText,
   stream,
 } from "@/lib/ai";
+import {
+  isHardUpstreamFailure,
+  upstreamFailureReason,
+} from "@/lib/upstream-error";
+import {
+  attemptId,
+  cooldownSeconds,
+  isAttemptOpen,
+  PROVIDER_COOLDOWN_MS,
+  recordAttemptFailure,
+  recordAttemptSuccess,
+} from "@/lib/circuit";
 import type { ChatMessage, ChatTool, ChatToolChoice } from "@/lib/ai";
 
 
@@ -31,9 +46,50 @@ const CORS = {
 /** A completion is never cacheable: it bills tokens and may be personal. */
 const NO_STORE = { "Cache-Control": "no-store" };
 
+/** One endpoint that could not serve the request, and why. */
+type Failure = {
+  provider: string;
+  reason: string;
+};
+
+/** One endpoint that was not tried at all, because it is cooling down. */
+type Skipped = {
+  provider: string;
+  reason: string;
+  seconds: number;
+};
+
+/**
+ * The reason a request failed is the part the caller needs. "Something went
+ * wrong" tells them nothing, so the message names every endpoint: the ones
+ * that were tried and answered, and the ones that were skipped because they
+ * kept failing.
+ */
+function failureMessage(
+  model: string,
+  failures: Failure[],
+  skipped: Skipped[],
+  phase: "streaming" | "requesting",
+): string {
+  const parts: string[] = [];
+  for (const failure of failures) {
+    parts.push(`${failure.provider}: ${failure.reason}`);
+  }
+  for (const skip of skipped) {
+    parts.push(
+      `${skip.provider}: skipped, ${skip.reason || "cooling down"} (back in ${skip.seconds}s)`,
+    );
+  }
+  if (parts.length === 0) {
+    return `Every endpoint serving "${model}" failed while ${phase}. Try again or pick another model.`;
+  }
+  return `Every endpoint serving "${model}" failed while ${phase}. ${parts.join(" | ")}`;
+}
+
 function limitHeaders(
   rate: Awaited<ReturnType<typeof rateLimitStatus>>,
   usage: Awaited<ReturnType<typeof usageToday>>,
+  weekly: Awaited<ReturnType<typeof usageThisWeek>>,
 ) {
   return {
     "X-RateLimit-Limit": String(rate.limit),
@@ -42,6 +98,9 @@ function limitHeaders(
     "X-Daily-Token-Limit": String(usage.limit),
     "X-Daily-Tokens-Used": String(usage.tokens),
     "X-Daily-Tokens-Remaining": String(usage.remaining),
+    "X-Weekly-Token-Limit": String(weekly.limit),
+    "X-Weekly-Tokens-Used": String(weekly.tokens),
+    "X-Weekly-Tokens-Remaining": String(weekly.remaining),
   };
 }
 
@@ -84,7 +143,8 @@ export async function POST(request: Request) {
 
   const rate = rateLimitStatus(key.id);
   const usage = await usageToday(key.user_id);
-  const quotaHeaders = limitHeaders(rate, usage);
+  const weekly = await usageThisWeek(key.user_id);
+  const quotaHeaders = limitHeaders(rate, usage, weekly);
 
   if (!rate.allowed) {
     const retryAfter = Math.max(1, Math.ceil((rate.resetAt - Date.now()) / 1000));
@@ -123,6 +183,20 @@ export async function POST(request: Request) {
         quotaHeaders,
       );
     }
+  } else if (!event && weekly.tokens >= weekly.limit) {
+    const retryAfter = Math.max(
+      1,
+      Math.ceil((Date.parse(weekly.resetAt) - Date.now()) / 1000),
+    );
+    return errorResponse(
+      429,
+      `Weekly fair-use limit reached (${weekly.limit} tokens). Resets at ${weekly.resetAt}.`,
+      "weekly_limit",
+      {
+        ...quotaHeaders,
+        "Retry-After": String(retryAfter),
+      },
+    );
   } else if (!event && usage.tokens >= usage.limit) {
     const retryAfter = Math.max(
       1,
@@ -148,13 +222,48 @@ export async function POST(request: Request) {
     );
   }
 
-  const candidates = await resolveCandidates(model);
-  if (candidates.length === 0) {
+  const allCandidates = await resolveCandidates(model);
+  if (allCandidates.length === 0) {
     return errorResponse(
       404,
       `Model "${model}" is not in the pool. GET /v1/models lists what is available.`,
       "model_not_found",
       quotaHeaders,
+    );
+  }
+
+  // An endpoint that is out of credit or has been failing is skipped for a
+  // while, so a request does not pay for a dead round trip every time.
+  const now = Date.now();
+  const skipped: Skipped[] = [];
+  const candidates = allCandidates.filter((candidate) => {
+    const openUntil = candidate.circuit_open_until
+      ? Date.parse(candidate.circuit_open_until)
+      : 0;
+    if (openUntil > now) {
+      skipped.push({
+        provider: candidate.provider_name,
+        reason: candidate.circuit_reason ?? "cooling down",
+        seconds: Math.ceil((openUntil - now) / 1000),
+      });
+      return false;
+    }
+    return !isAttemptOpen(attemptId(candidate.provider_id, candidate.api_key));
+  });
+  if (candidates.length === 0) {
+    const wait = Math.max(
+      cooldownSeconds(
+        allCandidates.map((candidate) =>
+          attemptId(candidate.provider_id, candidate.api_key),
+        ),
+      ),
+      ...skipped.map((skip) => skip.seconds),
+    );
+    return errorResponse(
+      503,
+      `Every endpoint serving "${model}" is cooling down after repeated failures. Try again in ${wait}s, or pick another model.${skipped.length ? ` (${skipped.map((skip) => `${skip.provider}: ${skip.reason}`).join(" | ")})` : ""}`,
+      "endpoints_cooling_down",
+      { ...quotaHeaders, "Retry-After": String(Math.max(1, wait)) },
     );
   }
 
@@ -171,7 +280,7 @@ export async function POST(request: Request) {
             encoder.encode(`data: ${JSON.stringify(payload)}\n\n`),
           );
 
-        const failures: string[] = [];
+        const failures: Failure[] = [];
 
         // The role delta belongs to the response, not to a candidate, so it is
         // emitted once before any upstream is tried.
@@ -184,21 +293,27 @@ export async function POST(request: Request) {
         });
 
         for (const route of candidates) {
-          const result = stream(route, messages, {
-            temperature: body.temperature,
-            maxTokens: body.max_completion_tokens ?? body.max_tokens,
-            tools: body.tools,
-            toolChoice: body.tool_choice,
-          });
           text = "";
+          let sentAnything = false;
 
           try {
+            // The provider is set up inside the try: a client that throws
+            // while it is being built must become a failed candidate, not a
+            // broken stream with no error event.
+            const result = stream(route, messages, {
+              temperature: body.temperature,
+              maxTokens: body.max_completion_tokens ?? body.max_tokens,
+              tools: body.tools,
+              toolChoice: body.tool_choice,
+            });
+
             // `fullStream` exposes tool calls as well as text; `textStream`
             // would silently drop them.
             let sawToolCall = false;
             for await (const part of result.fullStream) {
               if (part.type === "text-delta") {
                 text += part.text;
+                sentAnything = true;
                 send({
                   id,
                   object: "chat.completion.chunk",
@@ -208,6 +323,7 @@ export async function POST(request: Request) {
                 });
               } else if (part.type === "tool-call") {
                 sawToolCall = true;
+                sentAnything = true;
                 send({
                   id,
                   object: "chat.completion.chunk",
@@ -259,6 +375,11 @@ export async function POST(request: Request) {
             controller.enqueue(encoder.encode("data: [DONE]\n\n"));
             const promptTokens = estimateTokens(promptText(messages));
             const completionTokens = estimateTokens(text);
+            recordAttemptSuccess(attemptId(route.provider_id, route.api_key));
+            if (route.circuit_open_until) {
+              // The provider served a request again, so let it back in.
+              await clearProviderCircuit(route.provider_id, route.model_id);
+            }
             await recordUsage({
               apiKeyId: key.id,
               userId: key.user_id,
@@ -273,10 +394,29 @@ export async function POST(request: Request) {
             if (event?.kind === "shared_quota") {
               await consumeSharedQuota(event.id, promptTokens + completionTokens);
             }
+            controller.close();
             return;
           } catch (error) {
             const details = logUpstreamFailure(route, error);
-            failures.push(`${route.provider_name}: ${details}`);
+            const reason = upstreamFailureReason(error);
+            failures.push({
+              provider: route.provider_name,
+              reason,
+            });
+            recordAttemptFailure(
+              attemptId(route.provider_id, route.api_key),
+              isHardUpstreamFailure(error),
+            );
+            if (isHardUpstreamFailure(error)) {
+              // The endpoint cannot serve anyone right now, so it is skipped
+              // by every isolate, not only this one.
+              await openProviderCircuit(
+                route.provider_id,
+                route.model_id,
+                reason,
+                PROVIDER_COOLDOWN_MS,
+              );
+            }
             await recordUsage({
               apiKeyId: key.id,
               userId: key.user_id,
@@ -288,6 +428,13 @@ export async function POST(request: Request) {
               error: details,
               latencyMs: Date.now() - started,
             });
+
+            if (sentAnything) {
+              // The caller already has part of this answer. Falling through to
+              // another endpoint would mix two answers into one stream, so the
+              // answer stops here and the failure is reported.
+              break;
+            }
           }
         }
 
@@ -297,9 +444,10 @@ export async function POST(request: Request) {
         });
         send({
           error: {
-            message: "Every endpoint serving this model failed while streaming. Try again.",
+            message: failureMessage(model, failures, skipped, "streaming"),
             type: "upstream_error",
             code: "upstream_unavailable",
+            details: failures,
           },
         });
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
@@ -318,7 +466,7 @@ export async function POST(request: Request) {
     });
   }
 
-  const failures: string[] = [];
+  const failures: Failure[] = [];
   for (const route of candidates) {
     try {
       const completion = await complete(route, messages, {
@@ -347,6 +495,11 @@ export async function POST(request: Request) {
       }
 
       const hasToolCalls = completion.toolCalls.length > 0;
+
+      recordAttemptSuccess(attemptId(route.provider_id, route.api_key));
+      if (route.circuit_open_until) {
+        await clearProviderCircuit(route.provider_id, route.model_id);
+      }
 
       return Response.json(
         {
@@ -380,7 +533,23 @@ export async function POST(request: Request) {
       );
     } catch (error) {
       const details = logUpstreamFailure(route, error);
-      failures.push(`${route.provider_name}: ${details}`);
+      const reason = upstreamFailureReason(error);
+      failures.push({
+        provider: route.provider_name,
+        reason,
+      });
+      recordAttemptFailure(
+        attemptId(route.provider_id, route.api_key),
+        isHardUpstreamFailure(error),
+      );
+      if (isHardUpstreamFailure(error)) {
+        await openProviderCircuit(
+          route.provider_id,
+          route.model_id,
+          reason,
+          PROVIDER_COOLDOWN_MS,
+        );
+      }
       await recordUsage({
         apiKeyId: key.id,
         userId: key.user_id,
@@ -401,7 +570,7 @@ export async function POST(request: Request) {
   });
   return errorResponse(
     503,
-    "Every endpoint serving this model failed. Try again or pick another model.",
+    failureMessage(model, failures, skipped, "requesting"),
     "upstream_unavailable",
     quotaHeaders,
   );
