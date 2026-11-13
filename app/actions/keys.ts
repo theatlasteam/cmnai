@@ -188,6 +188,48 @@ export async function addProviderKeyAction(
   };
 }
 
+export async function updateEndpointModelsAction(formData: FormData) {
+  const user = await requireUser();
+  const providerId = String(formData.get("providerId") ?? "");
+  const modelsRaw = String(formData.get("models") ?? "");
+  const models = Array.from(
+    new Set(
+      modelsRaw
+        .split(/[,\n]/)
+        .map((m) => m.trim())
+        .filter(Boolean),
+    ),
+  );
+  if (models.length === 0) return;
+
+  const owned = await one<{ id: string; status: string }>(
+    "SELECT id, status FROM providers WHERE id = ? AND user_id = ?",
+    providerId,
+    user.id,
+  );
+  if (!owned) return;
+
+  const modelStatus = owned.status === "active" ? "active" : "pending";
+  await run("DELETE FROM models WHERE provider_id = ?", providerId);
+  for (const model of models) {
+    await run(
+      `INSERT OR IGNORE INTO models (id, provider_id, model_id, display_name, context_window, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `mdl_${crypto.randomUUID().replace(/-/g, "").slice(0, 24)}`,
+      providerId,
+      model,
+      model,
+      null,
+      modelStatus,
+      now(),
+    );
+  }
+  revalidatePath("/dashboard/endpoints");
+  revalidatePath("/providers");
+  revalidatePath("/dashboard", "layout");
+  invalidatePoolCache();
+}
+
 export async function removeOwnEndpointAction(formData: FormData) {
   const user = await requireUser();
   const providerId = String(formData.get("providerId") ?? "");
@@ -213,9 +255,11 @@ export async function getOwnEndpoints(userId: string) {
     notes: string | null;
     created_at: string;
     model_count: number;
+    models: string | null;
   }>(
     `SELECT p.id, p.name, p.base_url, p.api_mode, p.status, p.notes, p.created_at,
-            COUNT(m.id) AS model_count
+            COUNT(m.id) AS model_count,
+            GROUP_CONCAT(m.model_id, ', ') AS models
      FROM providers p LEFT JOIN models m ON m.provider_id = p.id
      WHERE p.user_id = ? GROUP BY p.id ORDER BY p.created_at DESC`,
     userId,

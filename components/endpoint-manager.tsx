@@ -16,6 +16,7 @@ import { RefreshClockwise, Serverless, ShieldCheck, Trash } from "geist-icons";
 import {
   removeOwnEndpointAction,
   submitEndpointAction,
+  updateEndpointModelsAction,
   type ActionState,
 } from "@/app/actions/keys";
 import { refreshCaptchaAction } from "@/app/actions/auth";
@@ -32,6 +33,7 @@ type Endpoint = {
   notes: string | null;
   created_at: string;
   model_count: number;
+  models: string | null;
 };
 
 export function EndpointManager({
@@ -111,6 +113,24 @@ export function EndpointManager({
       key: "model_count",
       header: t.dash.modelsShort,
       align: "end" as const,
+    },
+    {
+      key: "models",
+      header: "Models",
+      renderCell: (row: Record<string, unknown>) => (
+        <form action={updateEndpointModelsAction}>
+          <input type="hidden" name="providerId" value={String(row.id)} />
+          <HStack gap={2} align="center">
+            <TextInput
+              label="Models"
+              htmlName="models"
+              defaultValue={String(row.models ?? "")}
+              placeholder="gpt-4o, claude-3-5-sonnet"
+            />
+            <Button type="submit" variant="secondary" size="sm" label="Save" />
+          </HStack>
+        </form>
+      ),
     },
     {
       key: "status",
