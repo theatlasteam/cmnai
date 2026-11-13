@@ -360,6 +360,17 @@ export default async function AdminProvidersPage() {
                     />
                   </VStack>
                   <input type="hidden" name="providerId" value={provider.id} />
+                  <HStack gap={2} align="center">
+                    <input
+                      type="checkbox"
+                      id={`newapi-${provider.id}`}
+                      name="isNewApi"
+                      defaultChecked={Boolean((provider as Provider & { is_newapi?: number }).is_newapi)}
+                    />
+                    <label htmlFor={`newapi-${provider.id}`}>
+                      New API (detect duplicate keys via quota fingerprint)
+                    </label>
+                  </HStack>
                   <HStack>
                     <Button type="submit" size="sm" variant="secondary" label="Save changes" />
                   </HStack>

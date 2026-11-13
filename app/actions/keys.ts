@@ -12,7 +12,11 @@ import {
 import { all, now, one, run } from "@/lib/db";
 import { consumeCaptcha } from "@/lib/captcha";
 import { normalizeProviderMode } from "@/lib/provider-mode";
-import { saveProviderKey, verifyProviderKey } from "@/lib/provider-keys";
+import {
+  fetchNewApiQuotaFingerprint,
+  saveProviderKey,
+  verifyProviderKey,
+} from "@/lib/provider-keys";
 
 export type ActionState = {
   error?: string;
@@ -144,8 +148,9 @@ export async function addProviderKeyAction(
     base_url: string;
     api_mode: string;
     headers_json: string;
+    is_newapi: number;
   }>(
-    "SELECT id, name, base_url, api_mode, headers_json FROM providers WHERE id = ? AND status = 'approved'",
+    "SELECT id, name, base_url, api_mode, headers_json, is_newapi FROM providers WHERE id = ? AND status = 'approved'",
     providerId,
   );
   if (!provider) return { error: "That provider is not available." };
@@ -156,6 +161,21 @@ export async function addProviderKeyAction(
     apiKey,
   );
   if (existing) return { error: "This API key has already been added to this provider." };
+
+  let quotaFingerprint: string | null = null;
+  if (provider.is_newapi) {
+    quotaFingerprint = await fetchNewApiQuotaFingerprint(provider.base_url, apiKey);
+    if (quotaFingerprint) {
+      const sameAccount = await one<{ id: string }>(
+        "SELECT id FROM provider_keys WHERE provider_id = ? AND quota_fingerprint = ?",
+        providerId,
+        quotaFingerprint,
+      );
+      if (sameAccount) {
+        return { error: "A key from this same account/quota is already in the pool." };
+      }
+    }
+  }
 
   const firstModel = await one<{ model_id: string }>(
     "SELECT model_id FROM models WHERE provider_id = ? AND status = 'approved' ORDER BY display_name LIMIT 1",

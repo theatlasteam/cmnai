@@ -1,5 +1,5 @@
 import { all, id, now, one, run } from "./db";
-import { dailyTokenLimit, nextDailyReset, rateLimitPerMinute } from "./limits";
+import { dailyTokenLimit, nextDailyReset, nextWeeklyReset, rateLimitPerMinute, utcWeekStart, weeklyTokenLimit } from "./limits";
 import type { ProviderMode } from "./provider-mode";
 import "./provider-keys";
 
@@ -17,6 +17,10 @@ export type PoolModel = {
   headers_json: string;
   priority: number;
   model_id: string;
+  /** When the provider is skipped because it kept failing. */
+  circuit_open_until?: string | null;
+  /** Why it was skipped. */
+  circuit_reason?: string | null;
 };
 
 export type PublicModel = {
@@ -53,6 +57,50 @@ export function invalidatePoolCache(): void {
   poolCache.clear();
 }
 
+/**
+ * Keeps a failing provider out of rotation for everyone, not just the
+ * isolate that saw the failure. The row is joined into the candidate query,
+ * so skipping a provider costs no extra read.
+ *
+ * The circuit is tracked per model: an endpoint that is out of credit for
+ * one model still serves the others.
+ */
+export async function openProviderCircuit(
+  providerId: string,
+  modelId: string,
+  reason: string,
+  openForMs: number,
+): Promise<void> {
+  const openUntil = new Date(Date.now() + openForMs).toISOString();
+  await run(
+    `INSERT INTO provider_circuits (provider_id, model_id, open_until, reason, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(provider_id, model_id) DO UPDATE SET
+       open_until = excluded.open_until,
+       reason = excluded.reason,
+       updated_at = excluded.updated_at`,
+    providerId,
+    modelId,
+    openUntil,
+    reason.slice(0, 240),
+    now(),
+  );
+  invalidatePoolCache();
+}
+
+/** A provider that served a request is healthy again, so let it back in. */
+export async function clearProviderCircuit(
+  providerId: string,
+  modelId: string,
+): Promise<void> {
+  await run(
+    "DELETE FROM provider_circuits WHERE provider_id = ? AND model_id = ?",
+    providerId,
+    modelId,
+  );
+  invalidatePoolCache();
+}
+
 export async function listPublicPool(): Promise<PublicModel[]> {
   return cached("pool:public", LIST_CACHE_TTL_MS, () =>
     all<PublicModel>(
@@ -81,8 +129,12 @@ async function loadCandidates(modelKey: string): Promise<PoolModel[]> {
               NULLIF(p.api_key, '')
             ) AS api_key,
             NULLIF(p.api_key, '') AS fallback_api_key,
-            p.priority, m.model_id
+            p.priority, m.model_id,
+            pc.open_until AS circuit_open_until,
+            pc.reason AS circuit_reason
      FROM models m JOIN providers p ON p.id = m.provider_id
+     LEFT JOIN provider_circuits pc
+       ON pc.provider_id = p.id AND pc.model_id = m.model_id
      WHERE m.status = 'approved' AND p.status = 'approved' AND m.model_id = ?
        AND (EXISTS (SELECT 1 FROM provider_keys pk
                     WHERE pk.provider_id = p.id AND pk.status = 'verified')
@@ -288,6 +340,8 @@ export type DailyUsage = {
   /** Tokens spent on models an event currently covers. */
   eventTokens: number;
   isContributor: boolean;
+  /** Verified keys this account contributes to the pool. */
+  contributions: number;
   limit: number;
   remaining: number;
   resetAt: string;
@@ -298,7 +352,8 @@ export async function usageToday(userId: string): Promise<DailyUsage> {
     requests: number;
     tokens: number;
     event_tokens: number;
-    is_contributor: number;
+    contributions: number;
+    custom_limit: number | null;
   }>(
     `SELECT COUNT(*) AS requests,
             COALESCE(SUM(CASE WHEN event_id IS NULL
@@ -307,26 +362,29 @@ export async function usageToday(userId: string): Promise<DailyUsage> {
             COALESCE(SUM(CASE WHEN event_id IS NOT NULL
                               THEN prompt_tokens + completion_tokens
                               ELSE 0 END), 0) AS event_tokens,
-            EXISTS (
-              SELECT 1 FROM provider_keys k
+            (SELECT COUNT(*) FROM provider_keys k
               JOIN providers p ON p.id = k.provider_id
               WHERE k.user_id = ? AND k.status = 'verified' AND p.status = 'approved'
-            ) AS is_contributor
+            ) AS contributions,
+            (SELECT daily_token_limit FROM users WHERE id = ?) AS custom_limit
      FROM usage_events WHERE user_id = ? AND created_at >= ?`,
+    userId,
     userId,
     userId,
     utcDayStart(),
   );
   const tokens = row?.tokens ?? 0;
   // Evaluate current contributions, not a permanent role: pending, failed,
-  // disabled keys and paused/rejected providers do not earn the higher budget.
-  const isContributor = Boolean(row?.is_contributor);
-  const limit = dailyTokenLimit(isContributor);
+  // disabled keys and paused/rejected providers do not earn a higher budget.
+  const contributions = row?.contributions ?? 0;
+  const isContributor = contributions > 0;
+  const limit = row?.custom_limit ?? dailyTokenLimit(contributions);
   return {
     requests: row?.requests ?? 0,
     tokens,
     eventTokens: row?.event_tokens ?? 0,
     isContributor,
+    contributions,
     limit,
     remaining: Math.max(0, limit - tokens),
     resetAt: nextDailyReset(),
@@ -335,6 +393,35 @@ export async function usageToday(userId: string): Promise<DailyUsage> {
 
 export async function tokensUsedToday(userId: string): Promise<number> {
   return (await usageToday(userId)).tokens;
+}
+
+export type WeeklyUsage = {
+  tokens: number;
+  limit: number;
+  remaining: number;
+  resetAt: string;
+};
+
+/** Token usage against the personal weekly budget (UTC Monday to Monday). */
+export async function usageThisWeek(userId: string): Promise<WeeklyUsage> {
+  const row = await one<{ tokens: number }>(
+    `SELECT COALESCE(SUM(CASE WHEN event_id IS NULL
+                              THEN prompt_tokens + completion_tokens
+                              ELSE 0 END), 0) AS tokens
+     FROM usage_events WHERE user_id = ? AND created_at >= ?`,
+    userId,
+    utcWeekStart(),
+  );
+  const tokens = row?.tokens ?? 0;
+  const limit = weeklyTokenLimit(
+    (await usageToday(userId)).contributions,
+  );
+  return {
+    tokens,
+    limit,
+    remaining: Math.max(0, limit - tokens),
+    resetAt: nextWeeklyReset(),
+  };
 }
 
 export type DailyUsagePoint = {

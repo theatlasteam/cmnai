@@ -170,17 +170,20 @@ export async function updateProviderAction(formData: FormData) {
   const headersJson = JSON.stringify(parseProviderHeaders(formData.get("maskHeaders")));
   const priority = Number.parseInt(String(formData.get("priority") ?? "100"), 10);
   const notes = String(formData.get("notes") ?? "").trim();
+  const isNewApi =
+    formData.get("isNewApi") === "on" || formData.get("isNewApi") === "1" ? 1 : 0;
 
   if (!name || !/^https?:\/\//i.test(baseUrl)) return;
 
   await run(
-    "UPDATE providers SET name = ?, base_url = ?, api_mode = ?, headers_json = ?, priority = ?, notes = ? WHERE id = ?",
+    "UPDATE providers SET name = ?, base_url = ?, api_mode = ?, headers_json = ?, priority = ?, notes = ?, is_newapi = ? WHERE id = ?",
     name,
     baseUrl,
     apiMode,
     headersJson,
     Number.isFinite(priority) ? Math.max(0, Math.min(1000, priority)) : 100,
     notes || null,
+    isNewApi,
     providerId,
   );
   await audit(admin.id, "provider.update", "provider", providerId, name);

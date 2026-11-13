@@ -145,6 +145,54 @@ export async function verifyProviderKey(
   }
 }
 
+export async function fetchNewApiQuotaFingerprint(
+  baseUrl: string,
+  apiKey: string,
+): Promise<string | null> {
+  const root = baseUrl.trim().replace(/\/+$/, "").replace(/\/v1$/i, "");
+  const headers = { Authorization: `Bearer ${apiKey.trim()}` };
+  try {
+    const res = await fetch(`${root}/api/usage/token`, {
+      headers,
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.ok) {
+      const json = (await res.json()) as {
+        data?: { total_granted?: number; total_used?: number; total_available?: number };
+        total_granted?: number;
+        total_used?: number;
+        total_available?: number;
+      };
+      const d = json.data ?? json;
+      if (
+        typeof d.total_granted === "number" &&
+        typeof d.total_used === "number" &&
+        typeof d.total_available === "number"
+      ) {
+        return `newapi:${d.total_granted}:${d.total_used}:${d.total_available}`;
+      }
+    }
+  } catch {
+    // Fall back to billing endpoints below.
+  }
+
+  try {
+    const subRes = await fetch(`${root}/v1/dashboard/billing/subscription`, {
+      headers,
+      signal: AbortSignal.timeout(5000),
+    });
+    if (subRes.ok) {
+      const sub = (await subRes.json()) as { hard_limit_usd?: number };
+      if (typeof sub.hard_limit_usd === "number") {
+        return `billing:${sub.hard_limit_usd}`;
+      }
+    }
+  } catch {
+    // Endpoint unavailable.
+  }
+  return null;
+}
+
 export async function saveProviderKey(input: {
   providerId: string;
   userId: string | null;
@@ -152,13 +200,14 @@ export async function saveProviderKey(input: {
   label?: string | null;
   verified: boolean;
   error?: string | null;
+  quotaFingerprint?: string | null;
 }): Promise<string> {
   const keyId = id("pky_");
   const checkedAt = now();
   await run(
     `INSERT INTO provider_keys
-      (id, provider_id, user_id, label, api_key, status, last_checked_at, error, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, provider_id, user_id, label, api_key, status, last_checked_at, error, quota_fingerprint, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     keyId,
     input.providerId,
     input.userId,
@@ -167,6 +216,7 @@ export async function saveProviderKey(input: {
     input.verified ? "verified" : "failed",
     checkedAt,
     input.error ?? null,
+    input.quotaFingerprint ?? null,
     checkedAt,
   );
   return keyId;
