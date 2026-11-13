@@ -26,6 +26,7 @@ export default async function EndpointsPage({
       captcha={await createCaptcha()}
       notice={submitted}
       providerKeys={providerKeys}
+      isAdmin={user.role === "admin"}
     />
   );
 }

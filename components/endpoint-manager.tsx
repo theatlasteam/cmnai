@@ -43,6 +43,7 @@ export function EndpointManager({
   captcha: initial,
   notice,
   providerKeys,
+  isAdmin = false,
 }: {
   t: Dictionary;
   locale: string;
@@ -56,6 +57,7 @@ export function EndpointManager({
     last_checked_at: string | null;
     error: string | null;
   }>;
+  isAdmin?: boolean;
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     submitEndpointAction,
@@ -117,20 +119,25 @@ export function EndpointManager({
     {
       key: "models",
       header: "Models",
-      renderCell: (row: Record<string, unknown>) => (
-        <form action={updateEndpointModelsAction}>
-          <input type="hidden" name="providerId" value={String(row.id)} />
-          <HStack gap={2} align="center">
-            <TextInput
-              label="Models"
-              htmlName="models"
-              defaultValue={String(row.models ?? "")}
-              placeholder="gpt-4o, claude-3-5-sonnet"
-            />
-            <Button type="submit" variant="secondary" size="sm" label="Save" />
-          </HStack>
-        </form>
-      ),
+      renderCell: (row: Record<string, unknown>) =>
+        isAdmin ? (
+          <form action={updateEndpointModelsAction}>
+            <input type="hidden" name="providerId" value={String(row.id)} />
+            <HStack gap={2} align="center">
+              <TextInput
+                label="Models"
+                htmlName="models"
+                defaultValue={String(row.models ?? "")}
+                placeholder="gpt-4o, claude-3-5-sonnet"
+              />
+              <Button type="submit" variant="secondary" size="sm" label="Save" />
+            </HStack>
+          </form>
+        ) : (
+          <Text type="body" color="secondary">
+            {String(row.models ?? "—")}
+          </Text>
+        ),
     },
     {
       key: "status",

@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import {
   createApiKeyForUser,
   listApiKeys,
+  requireAdmin,
   requireUser,
 } from "@/lib/auth";
 import { all, now, one, run } from "@/lib/db";
@@ -189,7 +190,7 @@ export async function addProviderKeyAction(
 }
 
 export async function updateEndpointModelsAction(formData: FormData) {
-  const user = await requireUser();
+  await requireAdmin();
   const providerId = String(formData.get("providerId") ?? "");
   const modelsRaw = String(formData.get("models") ?? "");
   const models = Array.from(
@@ -203,9 +204,8 @@ export async function updateEndpointModelsAction(formData: FormData) {
   if (models.length === 0) return;
 
   const owned = await one<{ id: string; status: string }>(
-    "SELECT id, status FROM providers WHERE id = ? AND user_id = ?",
+    "SELECT id, status FROM providers WHERE id = ?",
     providerId,
-    user.id,
   );
   if (!owned) return;
 
