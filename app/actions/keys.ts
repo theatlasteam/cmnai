@@ -150,6 +150,13 @@ export async function addProviderKeyAction(
   );
   if (!provider) return { error: "That provider is not available." };
 
+  const existing = await one<{ id: string }>(
+    "SELECT id FROM provider_keys WHERE provider_id = ? AND api_key = ?",
+    providerId,
+    apiKey,
+  );
+  if (existing) return { error: "This API key has already been added to this provider." };
+
   const firstModel = await one<{ model_id: string }>(
     "SELECT model_id FROM models WHERE provider_id = ? AND status = 'approved' ORDER BY display_name LIMIT 1",
     providerId,
